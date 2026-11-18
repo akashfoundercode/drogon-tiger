@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BarChart3, HelpCircle, Settings, Volume2, VolumeX, Crown } from 'lucide-react';
+import { ArrowLeft, BarChart3, HelpCircle, Settings, Volume2, VolumeX, Crown, Maximize, Minimize } from 'lucide-react';
 import PlayingCard from './PlayingCard.jsx';
 import StatusBanner from './StatusBanner.jsx';
 import { StatsModal, HelpModal, SettingsModal } from './Modals.jsx';
 import { useGame } from '../game/GameContext.jsx';
 import { PHASES } from '../game/constants.js';
+import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.js';
 
 function RoundButton({ children, onClick, label }) {
   return (
@@ -33,6 +34,20 @@ function RoundButton({ children, onClick, label }) {
 export default function Header() {
   const { state, actions, toast } = useGame();
   const [modal, setModal] = useState(null);
+  const [fs, setFs] = useState(isFullscreen());
+
+  useEffect(() => {
+    const onFsChange = () => setFs(isFullscreen());
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    document.addEventListener('mozfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+      document.removeEventListener('mozfullscreenchange', onFsChange);
+    };
+  }, []);
+
   const { phase, cards, reveal, result } = state;
   const showResult = phase === PHASES.RESULT && result;
   const dWin = showResult && result.winner === 'dragon';
@@ -58,7 +73,10 @@ export default function Header() {
       </div>
 
       {/* top-right: controls */}
-      <div className="absolute right-6 top-4 flex items-center gap-3" style={{ zIndex: 30 }}>
+      <div className="absolute right-6 top-4 flex items-center gap-2.5" style={{ zIndex: 30 }}>
+        <RoundButton label={fs ? 'Exit Fullscreen' : 'Fullscreen'} onClick={() => toggleFullscreen()}>
+          {fs ? <Minimize size={24} color="#ffd84a" /> : <Maximize size={24} color="#ffd84a" />}
+        </RoundButton>
         <RoundButton label={state.soundOn ? 'Mute' : 'Unmute'} onClick={actions.toggleSound}>
           {state.soundOn ? <Volume2 size={24} color="#ffd84a" /> : <VolumeX size={24} color="#ffd84a" />}
         </RoundButton>

@@ -1,7 +1,9 @@
 import React from 'react';
-import { Info, RotateCw } from 'lucide-react';
+import { Info, RotateCw, Maximize } from 'lucide-react';
 import { GameProvider } from './game/GameContext.jsx';
 import { useScale } from './hooks/useScale.js';
+import { useMobileFullscreen } from './hooks/useMobileFullscreen.js';
+import { enterFullscreen } from './utils/fullscreen.js';
 import { CANVAS_W, CANVAS_H } from './game/constants.js';
 import Scene from './components/Scene.jsx';
 import Header from './components/Header.jsx';
@@ -43,6 +45,12 @@ function Game() {
 
 export default function App() {
   const { scaleX, scaleY, portrait } = useScale();
+  useMobileFullscreen();
+
+  const handleRotateTap = async () => {
+    await enterFullscreen();
+  };
+
   return (
     <GameProvider>
       <div className="fixed inset-0 overflow-hidden" style={{ background: '#05020c' }}>
@@ -61,12 +69,28 @@ export default function App() {
           <Game />
         </div>
         {portrait && (
-          <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center gap-4 text-center px-8" style={{ background: 'rgba(5,2,12,.94)' }}>
-            <RotateCw size={56} color="#ffd84a" />
+          <div
+            onClick={handleRotateTap}
+            className="absolute inset-0 z-[200] flex flex-col items-center justify-center gap-5 text-center px-8 cursor-pointer select-none"
+            style={{ background: 'radial-gradient(circle at center, rgba(30,10,25,0.96), rgba(5,2,12,0.98))' }}
+          >
+            <div className="relative">
+              <RotateCw size={64} color="#ffd84a" className="animate-spin" style={{ animationDuration: '4s' }} />
+            </div>
             <p className="font-display font-black text-2xl text-gold-grad">Rotate your device</p>
-            <p className="text-white/70 font-body text-sm flex items-center gap-1.5">
-              <Info size={16} /> Dragon vs Tiger plays in landscape
+            <p className="text-white/80 font-body text-sm flex items-center gap-1.5">
+              <Info size={16} /> Dragon vs Tiger plays in landscape fullscreen
             </p>
+            <button
+              onClick={handleRotateTap}
+              className="mt-2 flex items-center gap-2 px-6 py-3 rounded-full font-display font-extrabold text-[15px] tracking-wider text-[#4a2d00] transition-transform active:scale-95"
+              style={{
+                background: 'linear-gradient(180deg,#fff1a8,#e0a912)',
+                boxShadow: '0 4px 16px rgba(224,169,18,0.5), inset 0 1px 1px rgba(255,255,255,0.8)',
+              }}
+            >
+              <Maximize size={18} strokeWidth={2.5} /> TAP FOR FULLSCREEN
+            </button>
           </div>
         )}
       </div>

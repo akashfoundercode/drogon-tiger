@@ -1,4 +1,22 @@
+export const isIOS = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+};
+
+export const isIPhone = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  return /iPhone|iPod/.test(navigator.userAgent);
+};
+
 export function isFullscreen() {
+  if (typeof document === 'undefined') return false;
+  // iOS standalone PWA (Home Screen Web App)
+  if (typeof window !== 'undefined' && window.navigator?.standalone) {
+    return true;
+  }
   return !!(
     document.fullscreenElement ||
     document.webkitFullscreenElement ||
@@ -9,6 +27,12 @@ export function isFullscreen() {
 
 export async function enterFullscreen(element = document.documentElement) {
   try {
+    // Safari address bar minimization scroll trick
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 1);
+      setTimeout(() => window.scrollTo(0, 0), 30);
+    }
+
     if (isFullscreen()) return true;
 
     if (element.requestFullscreen) {
@@ -21,7 +45,7 @@ export async function enterFullscreen(element = document.documentElement) {
       await element.msRequestFullscreen();
     }
 
-    // Try locking to landscape if supported (Android Chrome etc.)
+    // Try locking to landscape if supported
     if (window.screen?.orientation?.lock) {
       try {
         await window.screen.orientation.lock('landscape');

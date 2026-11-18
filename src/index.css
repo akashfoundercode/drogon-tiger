@@ -6,9 +6,19 @@ html,
 body,
 #root {
   height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
+  width: 100%;
+  width: 100dvw;
   margin: 0;
+  padding: 0;
   background: #07030f;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
   font-family: 'Poppins', system-ui, sans-serif;
   -webkit-user-select: none;
   user-select: none;

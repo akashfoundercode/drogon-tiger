@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #07030f;
+  overflow: hidden;
+  font-family: 'Poppins', system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: inherit;
+}
+
+.font-display {
+  font-family: 'Cinzel', Georgia, serif;
+}
+
+.text-gold-grad {
+  background: linear-gradient(180deg, #fff7c2 0%, #f5c542 48%, #b8801a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hide-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.gold-border {
+  border: 2px solid transparent;
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+}
+
+/* ---------- SVG character animations (CSS so pivots stay in local user space) ---------- */
+@keyframes breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.025) translateY(-3px); }
+}
+@keyframes jawmove {
+  0%, 100% { transform: rotate(1deg); }
+  45%, 60% { transform: rotate(10deg); }
+}
+@keyframes sway {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes whisker {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(7deg); }
+}
+@keyframes flame {
+  0%, 100% { transform: scale(1, 1) skewX(0deg); }
+  30% { transform: scale(1.08, 1.2) skewX(6deg); }
+  62% { transform: scale(0.93, 0.9) skewX(-6deg); }
+}
+@keyframes glowpulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+@keyframes tailswish {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(15deg); }
+}
+@keyframes rise {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-150px) scale(1); opacity: 0; }
+}
+@keyframes petal {
+  0% { transform: translate3d(0, -40px, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.9; }
+  100% { transform: translate3d(-160px, 940px, 0) rotate(540deg); opacity: 0; }
+}
+@keyframes lantern {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes sheen {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  100% { transform: translateX(260%) skewX(-20deg); }
+}
+@keyframes lightning {
+  0%, 88%, 100% { opacity: 0.5; }
+  90% { opacity: 1; }
+  93% { opacity: 0.4; }
+  96% { opacity: 1; }
+}
+
+.anim-breathe { animation: breathe 4.2s ease-in-out infinite; }
+.anim-jaw { animation: jawmove 3.8s ease-in-out infinite; }
+.anim-sway { animation: sway 5s ease-in-out infinite; }
+.anim-whisker { animation: whisker 3s ease-in-out infinite; }
+.anim-flame { animation: flame 1.4s ease-in-out infinite; }
+.anim-glow { animation: glowpulse 2.2s ease-in-out infinite; }
+.anim-tail { animation: tailswish 3.4s ease-in-out infinite; }
+.anim-lantern { animation: lantern 4s ease-in-out infinite; }
+.anim-lightning { animation: lightning 4s linear infinite; }
+
+.sheen-bar {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.sheen-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: sheen 3.6s ease-in-out infinite;
+}

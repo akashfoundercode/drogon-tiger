@@ -1,0 +1,106 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, BarChart3, HelpCircle, Settings, Volume2, VolumeX, Crown } from 'lucide-react';
+import PlayingCard from './PlayingCard.jsx';
+import StatusBanner from './StatusBanner.jsx';
+import { StatsModal, HelpModal, SettingsModal } from './Modals.jsx';
+import { useGame } from '../game/GameContext.jsx';
+import { PHASES } from '../game/constants.js';
+
+function RoundButton({ children, onClick, label }) {
+  return (
+    <motion.button
+      aria-label={label}
+      onClick={onClick}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.92 }}
+      className="flex items-center justify-center rounded-full"
+      style={{
+        width: 52,
+        height: 52,
+        background: 'radial-gradient(circle at 35% 25%,#7a1d1d,#3a0a0a 70%)',
+        border: '3px solid #f5c542',
+        boxShadow: '0 0 0 2px #5c3b06, 0 6px 12px rgba(0,0,0,.6), inset 0 0 10px rgba(0,0,0,.6)',
+      }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+
+
+export default function Header() {
+  const { state, actions, toast } = useGame();
+  const [modal, setModal] = useState(null);
+  const { phase, cards, reveal, result } = state;
+  const showResult = phase === PHASES.RESULT && result;
+  const dWin = showResult && result.winner === 'dragon';
+  const tWin = showResult && result.winner === 'tiger';
+  const charging = phase === PHASES.CLOSED || (phase === PHASES.REVEAL && !(reveal.dragon && reveal.tiger));
+
+  return (
+    <>
+      {/* top-left: back + logo */}
+      <div className="absolute left-6 top-4 flex items-center gap-3" style={{ zIndex: 30 }}>
+        <RoundButton label="Back" onClick={() => toast('Lobby is not part of this demo')}>
+          <ArrowLeft size={26} color="#ffd84a" strokeWidth={3} />
+        </RoundButton>
+        <div className="flex flex-col items-center leading-[0.9]">
+          <Crown size={20} color="#ffd84a" fill="#f5b81c" />
+          <span className="font-display font-black text-[28px] text-gold-grad" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.8))', fontStyle: 'italic' }}>
+            Dragon
+          </span>
+          <span className="font-display font-black text-[28px] text-gold-grad -mt-1" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.8))', fontStyle: 'italic' }}>
+            Tiger
+          </span>
+        </div>
+      </div>
+
+      {/* top-right: controls */}
+      <div className="absolute right-6 top-4 flex items-center gap-3" style={{ zIndex: 30 }}>
+        <RoundButton label={state.soundOn ? 'Mute' : 'Unmute'} onClick={actions.toggleSound}>
+          {state.soundOn ? <Volume2 size={24} color="#ffd84a" /> : <VolumeX size={24} color="#ffd84a" />}
+        </RoundButton>
+        <RoundButton label="Statistics" onClick={() => setModal('stats')}>
+          <BarChart3 size={24} color="#ffd84a" />
+        </RoundButton>
+        <RoundButton label="How to play" onClick={() => setModal('help')}>
+          <HelpCircle size={26} color="#ffd84a" />
+        </RoundButton>
+        <RoundButton label="Settings" onClick={() => setModal('settings')}>
+          <Settings size={24} color="#ffd84a" />
+        </RoundButton>
+      </div>
+
+      {/* centre: cards with background's painted VS showing in the gap */}
+      <div className="absolute flex items-center justify-center" style={{ left: 705, width: 460, top: 18, height: 140, zIndex: 140 }}>
+        <PlayingCard
+          card={cards.dragon}
+          faceUp={reveal.dragon}
+          charging={charging}
+          highlight={dWin}
+          loser={tWin}
+          tag={{ text: 'DRAGON', color: '#6fc8ff' }}
+        />
+        <div style={{ width: 200 }} />
+        <PlayingCard
+          card={cards.tiger}
+          faceUp={reveal.tiger}
+          charging={charging}
+          highlight={tWin}
+          loser={dWin}
+          tag={{ text: 'TIGER', color: '#ffa04a' }}
+        />
+      </div>
+
+      <StatusBanner />
+
+      <AnimatePresence>
+        {modal === 'stats' && <StatsModal key="stats" onClose={() => setModal(null)} />}
+        {modal === 'help' && <HelpModal key="help" onClose={() => setModal(null)} />}
+        {modal === 'settings' && <SettingsModal key="settings" onClose={() => setModal(null)} />}
+      </AnimatePresence>
+    </>
+  );
+}

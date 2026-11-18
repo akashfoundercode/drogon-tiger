@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { enterFullscreen, isFullscreen, isIOS } from '../utils/fullscreen.js';
+import { enterFullscreen, isFullscreen, isIOS, isMobileDevice } from '../utils/fullscreen.js';
 
 export function useMobileFullscreen() {
   useEffect(() => {
-    const isTouch =
-      'ontouchstart' in window ||
-      navigator.maxTouchPoints > 0 ||
-      /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    // Only run on mobile/tablet devices. Never on desktop.
+    if (!isMobileDevice()) {
+      return undefined;
+    }
 
     let prevPortrait = window.innerHeight > window.innerWidth;
     let userManuallyExited = false;
@@ -38,7 +38,7 @@ export function useMobileFullscreen() {
     document.addEventListener('webkitfullscreenchange', onFullscreenChange);
     document.addEventListener('mozfullscreenchange', onFullscreenChange);
 
-    // Auto-enter fullscreen whenever rotated into landscape
+    // Auto-enter fullscreen whenever rotated into landscape on mobile
     const handleOrientationChange = () => {
       const nowLandscape = window.innerWidth > window.innerHeight;
       if (nowLandscape) {
@@ -59,7 +59,7 @@ export function useMobileFullscreen() {
       window.visualViewport.addEventListener('resize', handleOrientationChange);
     }
 
-    // On user touch in landscape mode, if not in fullscreen and not manually exited, enter fullscreen
+    // On mobile touch in landscape mode, enter fullscreen
     const handleTouch = () => {
       const isLandscape = window.innerWidth > window.innerHeight;
       if (isLandscape && !isFullscreen() && !userManuallyExited) {
@@ -69,10 +69,9 @@ export function useMobileFullscreen() {
     };
 
     window.addEventListener('touchend', handleTouch, { passive: true });
-    window.addEventListener('click', handleTouch, { passive: true });
 
     // Initial check: if already landscape on mobile, try to go fullscreen
-    if (isTouch && window.innerWidth > window.innerHeight && !isFullscreen()) {
+    if (window.innerWidth > window.innerHeight && !isFullscreen()) {
       window.scrollTo(0, 0);
       enterFullscreen();
     }
@@ -96,7 +95,6 @@ export function useMobileFullscreen() {
         window.visualViewport.removeEventListener('resize', handleOrientationChange);
       }
       window.removeEventListener('touchend', handleTouch);
-      window.removeEventListener('click', handleTouch);
     };
   }, []);
 }

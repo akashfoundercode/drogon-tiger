@@ -249,6 +249,8 @@ export function GameProvider({ children }) {
     if (state.phase === PHASES.RESULT && state.result) {
       if (state.result.winner === 'tiger') {
         sfx.tigerWin();
+      } else if (state.result.winner === 'dragon') {
+        sfx.dragonWin();
       } else if (state.result.net > 0) {
         sfx.win();
       } else if (state.result.stake > 0) {

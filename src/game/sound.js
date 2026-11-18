@@ -147,6 +147,66 @@ export const sfx = {
       tone({ freq: f, type: 'triangle', dur: 0.45, vol: 0.11, delay: 0.25 + i * 0.08 })
     );
   },
+  dragonRoar() {
+    if (!enabled) return;
+    const c = audio();
+    if (!c) return;
+    const now = c.currentTime;
+
+    // 0. Violent breakthrough wall crack / thunder impact
+    noise({ dur: 0.42, vol: 0.38, hp: 280 });
+    tone({ freq: 55, type: 'sawtooth', dur: 0.6, vol: 0.45, slide: -30 });
+    tone({ freq: 160, type: 'square', dur: 0.25, vol: 0.24, slide: -90 });
+
+    // 1. Sub bass mythical dragon rumble
+    tone({ freq: 140, type: 'sawtooth', dur: 0.7, vol: 0.26, slide: -65, delay: 0.06 });
+    tone({ freq: 80, type: 'sine', dur: 0.95, vol: 0.42, slide: -40, delay: 0.04 });
+
+    // 2. Resonant dragon growl & wind gust modulation
+    try {
+      const dur = 2.6;
+      const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        const tSec = i / c.sampleRate;
+        const flutter = 0.5 + 0.5 * Math.sin(2 * Math.PI * 18 * tSec); // 18Hz deep dragon vortex
+        data[i] = (Math.random() * 2 - 1) * flutter;
+      }
+      const noiseSrc = c.createBufferSource();
+      noiseSrc.buffer = buf;
+
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(180, now);
+      bp.frequency.exponentialRampToValueAtTime(360, now + 0.4);
+      bp.frequency.exponentialRampToValueAtTime(120, now + dur);
+      bp.Q.setValueAtTime(4.2, now);
+
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.38 * volume, now + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+      noiseSrc.connect(bp);
+      bp.connect(gain);
+      gain.connect(c.destination);
+      noiseSrc.start(now);
+    } catch {
+      // Fallback
+    }
+
+    // 3. Piercing dragon bellow harmonic slides
+    tone({ freq: 110, type: 'sawtooth', dur: 2.0, vol: 0.22, slide: 45, delay: 0.08 });
+    tone({ freq: 115, type: 'sawtooth', dur: 1.9, vol: 0.22, slide: -35, delay: 0.12 });
+
+    // 4. Regal Dragon victory fanfare in bright celestial chords
+    [440, 554, 659, 880, 1108, 1318].forEach((f, i) =>
+      tone({ freq: f, type: 'triangle', dur: 0.45, vol: 0.11, delay: 0.25 + i * 0.08 })
+    );
+  },
+  dragonWin() {
+    this.dragonRoar();
+  },
   tigerWin() {
     this.tigerRoar();
   },

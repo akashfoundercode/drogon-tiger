@@ -264,8 +264,8 @@ export default function ResultHistory() {
       <div
         className="absolute pointer-events-none select-none"
         style={{
-          left: 1070,
-          top: -46,
+          left: 1000,
+          top: -48,
           width: 610,
           height: 345,
           zIndex: 25,

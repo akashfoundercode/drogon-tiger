@@ -13,6 +13,7 @@ import BetPanel from './components/BetPanel.jsx';
 import BottomBar from './components/BottomBar.jsx';
 import FlyingChips from './components/FlyingChips.jsx';
 import PhaseOverlay from './components/PhaseOverlay.jsx';
+import WinnerAnimation from './components/WinnerAnimation.jsx';
 import NumberGuide from './components/NumberGuide.jsx';
 
 function Game() {
@@ -36,6 +37,7 @@ function Game() {
       </div>
 
       <BottomBar />
+      <WinnerAnimation />
       <PhaseOverlay />
       <FlyingChips />
       <NumberGuide />

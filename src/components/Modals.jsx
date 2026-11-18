@@ -10,7 +10,7 @@ function Modal({ title, onClose, children }) {
   return (
     <motion.div
       className="absolute inset-0 flex items-center justify-center"
-      style={{ zIndex: 120, background: 'rgba(5,2,12,.72)', backdropFilter: 'blur(3px)' }}
+      style={{ zIndex: 160, background: 'rgba(5,2,12,.72)', backdropFilter: 'blur(3px)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

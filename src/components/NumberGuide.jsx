@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useGame } from '../game/GameContext.jsx';
 
 export const GUIDE_ZONES = [
   // 1 & 2: Sidebars
@@ -13,7 +14,7 @@ export const GUIDE_ZONES = [
   { id: 5, label: 'Top Center Plaque (Status Banner)', x: 755, y: 198, w: 380, h: 36, bx: 945, by: 216, sz: 34, color: '#eab308' },
 
   // 6: Cards Area
-  { id: 6, label: 'Cards & VS Area', x: 705, y: 18, w: 460, h: 140, bx: 935, by: 88, sz: 38, color: '#ec4899' },
+  { id: 6, label: 'Cards & VS Area', x: 795, y: 48, w: 280, h: 125, bx: 935, by: 105, sz: 38, color: '#ec4899' },
 
   // 7 to 20: 14 Small History Boxes
   { id: 7, label: 'Small Box 1', x: 637, y: 264, w: 39, h: 30, bx: 656, by: 279, sz: 22, color: '#06b6d4', small: true },
@@ -52,25 +53,110 @@ export const GUIDE_ZONES = [
 
 export default function NumberGuide() {
   const [show, setShow] = useState(true);
+  const { forceWinner, setForceWinner, toast } = useGame();
+
+  const handleSetWinner = (w) => {
+    setForceWinner(w);
+    const labels = {
+      tiger: '🐯 TIGER set as next winner!',
+      dragon: '🐲 DRAGON set as next winner!',
+      tie: '🤝 TIE set as next winner!',
+      random: '🎲 RANDOM winner mode active!',
+    };
+    toast(labels[w] || 'Winner mode updated');
+  };
 
   return (
     <>
-      {/* Floating Toggle Button */}
-      <button
-        onClick={() => setShow((v) => !v)}
-        className="absolute z-[150] px-3.5 py-1.5 rounded-full font-body font-black text-[13px] tracking-wide transition-all shadow-lg select-none cursor-pointer"
+      {/* Floating Bottom Testing & Guide Controls */}
+      <div
+        className="absolute z-[150] flex items-center gap-2 px-3.5 py-1.5 rounded-full select-none"
         style={{
           left: '50%',
           bottom: 10,
           transform: 'translateX(-50%)',
-          background: show ? 'linear-gradient(180deg,#ef4444,#991b1b)' : 'linear-gradient(180deg,#22c55e,#15803d)',
-          color: '#ffffff',
-          border: '2px solid #ffffff',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.4)',
+          background: 'rgba(12, 5, 22, 0.94)',
+          border: '2px solid rgba(255, 215, 74, 0.7)',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.85), 0 0 15px rgba(255,180,30,0.3)',
+          backdropFilter: 'blur(8px)',
         }}
       >
-        {show ? '🔢 HIDE NUMBERS (GUIDE ON)' : '🔢 SHOW NUMBERS (GUIDE OFF)'}
-      </button>
+        <span className="text-[12px] font-display font-black text-[#ffd84a] uppercase tracking-wider px-1 flex items-center gap-1">
+          <span>⚡ WINNER:</span>
+        </span>
+
+        {/* Tiger button */}
+        <button
+          onClick={() => handleSetWinner('tiger')}
+          className="px-3 py-1 rounded-full font-body font-black text-[12px] tracking-wide transition-all select-none cursor-pointer"
+          style={{
+            background: forceWinner === 'tiger' ? 'linear-gradient(180deg,#ef4444,#991b1b)' : 'rgba(255,255,255,0.08)',
+            color: forceWinner === 'tiger' ? '#ffffff' : '#ff9d26',
+            border: forceWinner === 'tiger' ? '1.5px solid #ff9d26' : '1px solid rgba(255,157,38,0.3)',
+            boxShadow: forceWinner === 'tiger' ? '0 0 12px rgba(239,68,68,0.7)' : 'none',
+          }}
+        >
+          🐯 TIGER {forceWinner === 'tiger' && '✓'}
+        </button>
+
+        {/* Dragon button */}
+        <button
+          onClick={() => handleSetWinner('dragon')}
+          className="px-3 py-1 rounded-full font-body font-black text-[12px] tracking-wide transition-all select-none cursor-pointer"
+          style={{
+            background: forceWinner === 'dragon' ? 'linear-gradient(180deg,#3b82f6,#1d4ed8)' : 'rgba(255,255,255,0.08)',
+            color: forceWinner === 'dragon' ? '#ffffff' : '#60a5fa',
+            border: forceWinner === 'dragon' ? '1.5px solid #60a5fa' : '1px solid rgba(96,165,250,0.3)',
+            boxShadow: forceWinner === 'dragon' ? '0 0 12px rgba(59,130,246,0.7)' : 'none',
+          }}
+        >
+          🐲 DRAGON {forceWinner === 'dragon' && '✓'}
+        </button>
+
+        {/* Tie button */}
+        <button
+          onClick={() => handleSetWinner('tie')}
+          className="px-3 py-1 rounded-full font-body font-black text-[12px] tracking-wide transition-all select-none cursor-pointer"
+          style={{
+            background: forceWinner === 'tie' ? 'linear-gradient(180deg,#22c55e,#15803d)' : 'rgba(255,255,255,0.08)',
+            color: forceWinner === 'tie' ? '#ffffff' : '#4ade80',
+            border: forceWinner === 'tie' ? '1.5px solid #4ade80' : '1px solid rgba(74,222,128,0.3)',
+            boxShadow: forceWinner === 'tie' ? '0 0 12px rgba(34,197,94,0.7)' : 'none',
+          }}
+        >
+          🤝 TIE {forceWinner === 'tie' && '✓'}
+        </button>
+
+        {/* Auto/Random button */}
+        <button
+          onClick={() => handleSetWinner('random')}
+          className="px-3 py-1 rounded-full font-body font-black text-[12px] tracking-wide transition-all select-none cursor-pointer"
+          style={{
+            background: forceWinner === 'random' ? 'linear-gradient(180deg,#eab308,#a16207)' : 'rgba(255,255,255,0.08)',
+            color: forceWinner === 'random' ? '#ffffff' : '#facc15',
+            border: forceWinner === 'random' ? '1.5px solid #facc15' : '1px solid rgba(250,204,21,0.3)',
+            boxShadow: forceWinner === 'random' ? '0 0 12px rgba(234,179,8,0.7)' : 'none',
+          }}
+        >
+          🎲 AUTO {forceWinner === 'random' && '✓'}
+        </button>
+
+        {/* Divider */}
+        <div className="w-[1.5px] h-5 bg-white/20 mx-1" />
+
+        {/* Guide Toggle button */}
+        <button
+          onClick={() => setShow((v) => !v)}
+          className="px-3 py-1 rounded-full font-body font-black text-[12px] tracking-wide transition-all select-none cursor-pointer"
+          style={{
+            background: show ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)',
+            color: show ? '#ffd84a' : 'rgba(255,255,255,0.6)',
+            border: '1px solid rgba(255,255,255,0.2)',
+          }}
+        >
+          🔢 {show ? 'GUIDE ON' : 'GUIDE OFF'}
+        </button>
+      </div>
 
       {/* Number Overlays */}
       {show && (

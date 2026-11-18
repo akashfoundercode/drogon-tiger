@@ -91,8 +91,11 @@ export default function Header() {
         </RoundButton>
       </div>
 
-      {/* centre: cards with background's painted VS showing in the gap */}
-      <div className="absolute flex items-center justify-center" style={{ left: 705, width: 460, top: 18, height: 140, zIndex: 140 }}>
+      {/* centre: cards with VS emblem */}
+      <div
+        className="absolute flex items-center justify-center gap-7"
+        style={{ left: '50%', transform: 'translateX(-50%)', top: 52, zIndex: 140 }}
+      >
         <PlayingCard
           card={cards.dragon}
           faceUp={reveal.dragon}
@@ -101,7 +104,40 @@ export default function Header() {
           loser={tWin}
           tag={{ text: 'DRAGON', color: '#6fc8ff' }}
         />
-        <div style={{ width: 200 }} />
+
+        {/* VS emblem */}
+        <div className="flex flex-col items-center justify-center relative select-none pointer-events-none">
+          {/* subtle radial flare */}
+          <div
+            className="absolute w-24 h-24 rounded-full pointer-events-none"
+            style={{
+              background: 'radial-gradient(circle, rgba(255,190,40,0.35) 0%, rgba(230,60,20,0.15) 50%, transparent 75%)',
+              filter: 'blur(8px)',
+            }}
+          />
+          <div className="relative flex items-center justify-center">
+            <span
+              className="font-display font-black text-[42px] italic tracking-wider leading-none select-none"
+              style={{
+                background: 'linear-gradient(180deg, #ffffff 0%, #fff0a0 25%, #f5b81c 55%, #c85500 85%, #6e1000 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.95)) drop-shadow(0 0 16px rgba(255,180,30,0.8))',
+              }}
+            >
+              VS
+            </span>
+          </div>
+          {/* decorative golden accent line */}
+          <div
+            className="h-[2px] w-12 rounded-full mt-1"
+            style={{
+              background: 'linear-gradient(90deg, transparent, #ffd84a, transparent)',
+              boxShadow: '0 0 6px #ffd84a',
+            }}
+          />
+        </div>
+
         <PlayingCard
           card={cards.tiger}
           faceUp={reveal.tiger}

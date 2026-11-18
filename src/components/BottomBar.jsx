@@ -138,18 +138,30 @@ export default function BottomBar() {
               aria-label={`Select chip ${v}`}
               aria-pressed={selected}
               onClick={() => actions.selectChip(v)}
-              animate={{ y: selected ? -14 : 0, scale: selected ? 1.15 : 1 }}
-              whileHover={{ scale: selected ? 1.2 : 1.08 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              className="relative w-full h-full rounded-full outline-none"
-              style={{ opacity: unaffordable ? 0.45 : 1 }}
+              animate={{ y: 0, scale: 1 }}
+              whileHover={{ scale: 1 }}
+              whileTap={{
+                scale: 0.88,
+                y: 5,
+                transition: { duration: 0.06 },
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+              className="relative w-full h-full rounded-full outline-none select-none"
+              style={{
+                opacity: unaffordable ? 0.45 : 1,
+                filter: selected
+                  ? 'drop-shadow(0 0 10px rgba(255,214,90,0.85))'
+                  : undefined,
+              }}
             >
               {selected && (
                 <motion.span
-                  className="absolute -inset-2 rounded-full pointer-events-none"
-                  style={{ border: '3px solid #ffe27a', boxShadow: '0 0 18px 4px rgba(255,214,90,.85)' }}
-                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  className="absolute -inset-1.5 rounded-full pointer-events-none"
+                  style={{
+                    border: '3px solid #ffe27a',
+                    boxShadow: '0 0 16px 3px rgba(255,214,90,.9), inset 0 0 8px rgba(255,214,90,.5)',
+                  }}
+                  animate={{ opacity: [0.75, 1, 0.75] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
                 />
               )}

@@ -68,7 +68,8 @@ export const sfx = {
     tone({ freq: 2700, type: 'sine', dur: 0.06, vol: 0.04, delay: 0.015 });
   },
   select() {
-    tone({ freq: 900, type: 'sine', dur: 0.05, vol: 0.05 });
+    tone({ freq: 1100, type: 'triangle', dur: 0.04, vol: 0.08 });
+    tone({ freq: 450, type: 'sine', dur: 0.06, vol: 0.06, slide: -150 });
   },
   tick() {
     tone({ freq: 1200, type: 'square', dur: 0.05, vol: 0.04 });
@@ -88,6 +89,66 @@ export const sfx = {
     [523, 659, 784, 1047, 1319].forEach((f, i) =>
       tone({ freq: f, type: 'triangle', dur: 0.35, vol: 0.09, delay: i * 0.09 })
     );
+  },
+  tigerRoar() {
+    if (!enabled) return;
+    const c = audio();
+    if (!c) return;
+    const now = c.currentTime;
+
+    // 0. Violent wall break / shatter impact crunch
+    noise({ dur: 0.38, vol: 0.35, hp: 350 });
+    tone({ freq: 65, type: 'sawtooth', dur: 0.5, vol: 0.4, slide: -35 });
+    tone({ freq: 140, type: 'square', dur: 0.22, vol: 0.22, slide: -80 });
+
+    // 1. Initial jump impact / sub drop
+    tone({ freq: 120, type: 'sawtooth', dur: 0.6, vol: 0.24, slide: -70, delay: 0.08 });
+    tone({ freq: 90, type: 'sine', dur: 0.85, vol: 0.38, slide: -50, delay: 0.05 });
+
+    // 2. Growling beast vocal cord modulation (noise + bandpass + tremolo)
+    try {
+      const dur = 2.4;
+      const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        const tSec = i / c.sampleRate;
+        const tremolo = 0.5 + 0.5 * Math.sin(2 * Math.PI * 28 * tSec); // 28Hz gut rattle
+        data[i] = (Math.random() * 2 - 1) * tremolo;
+      }
+      const noiseSrc = c.createBufferSource();
+      noiseSrc.buffer = buf;
+
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(260, now);
+      bp.frequency.exponentialRampToValueAtTime(420, now + 0.35);
+      bp.frequency.exponentialRampToValueAtTime(150, now + dur);
+      bp.Q.setValueAtTime(3.4, now);
+
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.35 * volume, now + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+      noiseSrc.connect(bp);
+      bp.connect(gain);
+      gain.connect(c.destination);
+      noiseSrc.start(now);
+    } catch {
+      // Fallback
+    }
+
+    // 3. Dual detuned roar pitch slide
+    tone({ freq: 96, type: 'sawtooth', dur: 1.8, vol: 0.2, slide: 35, delay: 0.05 });
+    tone({ freq: 100, type: 'sawtooth', dur: 1.7, vol: 0.2, slide: -30, delay: 0.1 });
+
+    // 4. Triumphant victory fanfare chimes
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) =>
+      tone({ freq: f, type: 'triangle', dur: 0.45, vol: 0.11, delay: 0.25 + i * 0.08 })
+    );
+  },
+  tigerWin() {
+    this.tigerRoar();
   },
   lose() {
     tone({ freq: 300, type: 'sine', dur: 0.4, vol: 0.08, slide: -120 });

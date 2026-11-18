@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import { reducer, createInitialState } from './reducer.js';
 import { CHIP_VALUES, PHASES, TIMING, USER_ID } from './constants.js';
-import { drawCard } from './cards.js';
+import { drawCard, drawPair } from './cards.js';
 import { getSlot } from './pile.js';
 import { pickBotBet } from './bots.js';
 import { sfx } from './sound.js';
@@ -35,6 +35,10 @@ export function GameProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const [forceWinner, setForceWinner] = useState('tiger'); // default to 'tiger' for testing
+  const forceWinnerRef = useRef(forceWinner);
+  forceWinnerRef.current = forceWinner;
 
   const [flying, setFlying] = useState([]);
   const flyId = useRef(0);
@@ -101,11 +105,22 @@ export function GameProvider({ children }) {
       dispatch({ type: 'PLACE_BET', side, amount });
       const chips = amountOverride ? decompose(amount) : [amount];
       chips.forEach((value, i) =>
-        later(() => launchToPile({ side, value, mine: true, from: { kind: 'chip', key: value } }), i * 110)
+        later(() => {
+          const k = slotCounters.current[side]++;
+          const slot = getSlot(side, k);
+          launchChip({
+            side,
+            value,
+            mine: true,
+            from: { kind: 'user' },
+            slot,
+            roundNo: stateRef.current.roundNo,
+          });
+        }, i * 200)
       );
       return true;
     },
-    [later, launchToPile, toast]
+    [later, launchChip, toast]
   );
 
   const repeatBet = useCallback(() => {
@@ -118,8 +133,13 @@ export function GameProvider({ children }) {
       sfx.error();
       return toast('Insufficient balance', 'error');
     }
-    ['dragon', 'tie', 'tiger'].forEach((side, i) => {
-      if (last[side] > 0) later(() => placeBet(side, last[side]), i * 160);
+    let delayAcc = 0;
+    ['dragon', 'tie', 'tiger'].forEach((side) => {
+      if (last[side] > 0) {
+        later(() => placeBet(side, last[side]), delayAcc);
+        const count = decompose(last[side]).length;
+        delayAcc += count * 220 + 100;
+      }
     });
   }, [later, placeBet, toast]);
 
@@ -132,9 +152,14 @@ export function GameProvider({ children }) {
       sfx.error();
       return toast('Insufficient balance for x2', 'error');
     }
-    ['dragon', 'tie', 'tiger'].forEach((side, i) => {
+    let delayAcc = 0;
+    ['dragon', 'tie', 'tiger'].forEach((side) => {
       const extra = s.bets[side];
-      if (extra > 0) later(() => placeBet(side, extra), i * 160);
+      if (extra > 0) {
+        later(() => placeBet(side, extra), delayAcc);
+        const count = decompose(extra).length;
+        delayAcc += count * 220 + 100;
+      }
     });
   }, [later, placeBet, toast]);
 
@@ -171,7 +196,7 @@ export function GameProvider({ children }) {
     }
     if (phase === PHASES.CLOSED) {
       const t = setTimeout(
-        () => dispatch({ type: 'START_REVEAL', cards: { dragon: drawCard(), tiger: drawCard() } }),
+        () => dispatch({ type: 'START_REVEAL', cards: drawPair(forceWinnerRef.current) }),
         TIMING.closed
       );
       return () => clearTimeout(t);
@@ -197,22 +222,24 @@ export function GameProvider({ children }) {
     const iv = setInterval(() => {
       const s = stateRef.current;
       if (s.phase !== PHASES.BETTING || s.timer <= 1) return;
-      for (let k = 0; k < 2; k++) {
-        const pick = pickBotBet(stateRef.current.bots);
-        if (!pick) return;
-        const { bot, side, chip, amount } = pick;
-        dispatch({ type: 'BOT_BET', botId: bot.id, side, amount });
-        launchToPile({
-          side,
-          value: chip,
-          mine: false,
-          from: { kind: 'player', key: bot.id, sidebar: bot.sidebar },
-        });
-        later(() => dispatch({ type: 'BOT_IDLE', botId: bot.id }), 900);
-      }
-    }, 420);
+      const pick = pickBotBet(stateRef.current.bots);
+      if (!pick) return;
+      const { bot, side, chip, amount } = pick;
+      dispatch({ type: 'BOT_BET', botId: bot.id, side, amount });
+      const k = slotCounters.current[side]++;
+      const slot = getSlot(side, k);
+      launchChip({
+        side,
+        value: chip,
+        mine: false,
+        from: { kind: 'player', key: bot.id, sidebar: bot.sidebar },
+        slot,
+        roundNo: stateRef.current.roundNo,
+      });
+      later(() => dispatch({ type: 'BOT_IDLE', botId: bot.id }), 900);
+    }, 550);
     return () => clearInterval(iv);
-  }, [state.phase, launchToPile, later]);
+  }, [state.phase, launchChip, later]);
 
   /* ----------------------------------- effects ----------------------------------- */
   // phase sounds
@@ -220,9 +247,15 @@ export function GameProvider({ children }) {
     if (state.phase === PHASES.BETTING) sfx.open();
     if (state.phase === PHASES.CLOSED) sfx.lock();
     if (state.phase === PHASES.RESULT && state.result) {
-      if (state.result.net > 0) sfx.win();
-      else if (state.result.stake > 0) sfx.lose();
-      else sfx.select();
+      if (state.result.winner === 'tiger') {
+        sfx.tigerWin();
+      } else if (state.result.net > 0) {
+        sfx.win();
+      } else if (state.result.stake > 0) {
+        sfx.lose();
+      } else {
+        sfx.select();
+      }
     }
   }, [state.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -235,27 +268,6 @@ export function GameProvider({ children }) {
   }, [state.timer, state.phase]);
 
   useEffect(() => sfx.setEnabled(state.soundOn), [state.soundOn]);
-
-  // payout chips fly from the winning pile to the player's avatar
-  useEffect(() => {
-    if (state.phase !== PHASES.RESULT || !state.result || state.result.payout <= 0) return;
-    const { winner, payout } = state.result;
-    const b = state.bets;
-    const from = b[winner] > 0 ? winner : b.dragon > 0 ? 'dragon' : 'tiger';
-    const n = Math.min(8, Math.max(3, Math.ceil(payout / 1000)));
-    for (let i = 0; i < n; i++) {
-      later(
-        () =>
-          launchChip({
-            kind: 'payout',
-            to: 'user',
-            value: CHIP_VALUES[Math.floor(Math.random() * CHIP_VALUES.length)],
-            from: { kind: 'pile', key: from },
-          }),
-        900 + i * 120
-      );
-    }
-  }, [state.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // toast auto-dismiss
   useEffect(() => {
@@ -278,9 +290,11 @@ export function GameProvider({ children }) {
       removeFlying,
       landChip,
       toast,
+      forceWinner,
+      setForceWinner,
       actions: { placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance },
     }),
-    [state, flying, removeFlying, landChip, toast, placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance]
+    [state, flying, removeFlying, landChip, toast, forceWinner, setForceWinner, placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance]
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

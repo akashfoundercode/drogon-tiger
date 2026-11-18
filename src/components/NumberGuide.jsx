@@ -52,7 +52,7 @@ export const GUIDE_ZONES = [
 ];
 
 export default function NumberGuide() {
-  const [show, setShow] = useState(true);
+  const [show, setShow] = useState(false);
   const { forceWinner, setForceWinner, toast } = useGame();
 
   const handleSetWinner = (w) => {

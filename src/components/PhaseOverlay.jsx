@@ -4,39 +4,155 @@ import { Coins, Lock, Sparkles } from 'lucide-react';
 import { useGame } from '../game/GameContext.jsx';
 import { PHASES } from '../game/constants.js';
 import { formatINR } from '../game/format.js';
+import dragonLogoGif from '../assets/gif/dragon_logo.gif';
+import tigerLogoGif from '../assets/gif/tiger.gif';
 
-/* "GET READY" flash – shown during idle phase before betting opens */
-function GetReadyFlash() {
+/* Background Cinematic Blur Veil:
+   Active during:
+   1. IDLE (Dragon vs Tiger VS confrontation popup)
+   2. First ~1.5s of BETTING (while "PLACE YOUR BETS" is displaying)
+   3. CLOSED (while "BETS LOCKED" is displaying)
+   Fades out cleanly when active betting begins and when card reveal begins!
+*/
+function CinematicBlurVeil() {
+  const { state } = useGame();
+  const showBlur =
+    state.phase === PHASES.IDLE ||
+    (state.phase === PHASES.BETTING && state.timer >= 14) ||
+    state.phase === PHASES.CLOSED;
+
+  return (
+    <AnimatePresence>
+      {showBlur && (
+        <motion.div
+          key="cinematic-blur-veil"
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            zIndex: 150,
+            background:
+              state.phase === PHASES.CLOSED
+                ? 'radial-gradient(circle at 50% 45%, rgba(60, 5, 12, 0.65) 0%, rgba(5, 2, 10, 0.78) 100%)'
+                : 'radial-gradient(circle at 50% 45%, rgba(12, 6, 25, 0.65) 0%, rgba(5, 2, 12, 0.78) 100%)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.32, ease: 'easeInOut' }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* Dragon vs Tiger Confrontation Popup – pops up on new round start with Dragon on left, Tiger on right, and "VS" in center */
+function DragonVsTigerConfrontation() {
   const { state } = useGame();
   const show = state.phase === PHASES.IDLE;
+
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-          key="ready"
-          className="absolute left-0 right-0 flex justify-center pointer-events-none"
-          style={{ top: 380, zIndex: 60 }}
-          initial={{ opacity: 0, scale: 0.4 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.4 }}
-          transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+          key={`vs-popup-${state.roundNo}`}
+          className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+          style={{ zIndex: 155 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.3 }}
         >
-          <div
-            className="relative px-14 py-3 rounded-full flex items-center gap-3"
-            style={{
-              background: 'linear-gradient(180deg, rgba(14,68,36,.96), rgba(5,28,15,.96))',
-              border: '4px solid #f5c542',
-              boxShadow: '0 0 60px rgba(34,197,94,.75), 0 10px 30px rgba(0,0,0,.75)',
-            }}
-          >
-            <Sparkles size={34} className="text-[#ffd84a] shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.8))' }} />
-            <span
-              className="font-display font-black text-[46px] tracking-wider text-gold-grad leading-none"
-              style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}
+          <div className="relative flex items-center justify-center" style={{ width: 1400, height: 420, marginTop: 40 }}>
+            {/* 1. Left: Dragon Popup (Gliding in from left) */}
+            <motion.div
+              className="relative flex items-center justify-end"
+              style={{ width: 520, height: 320 }}
+              initial={{ x: -260, opacity: 0, scale: 0.85 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              exit={{ x: -220, opacity: 0, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 20 }}
             >
-              GET READY
-            </span>
-            <div className="sheen-bar" />
+              <img
+                src={dragonLogoGif}
+                alt="Dragon Confrontation"
+                className="w-full h-full object-contain pointer-events-none select-none relative"
+                style={{
+                  filter: 'drop-shadow(0 0 25px rgba(0, 229, 255, 0.85)) drop-shadow(0 10px 20px rgba(0,0,0,0.9))',
+                  zIndex: 2,
+                }}
+              />
+            </motion.div>
+
+            {/* 2. Center: 3D Grand Gold/Ruby "VS" Crest (Moving ring removed) */}
+            <motion.div
+              className="relative flex flex-col items-center justify-center mx-4 shrink-0"
+              style={{ zIndex: 10 }}
+              initial={{ scale: 0.3, opacity: 0, rotate: -20 }}
+              animate={{ scale: [0.3, 1.25, 1], opacity: 1, rotate: 0 }}
+              exit={{ scale: 0.4, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 18, delay: 0.08 }}
+            >
+              {/* Gold/Ruby 3D Shield Crest (Static clean background, no moving circle ring) */}
+              <div
+                className="w-28 h-28 rounded-full flex items-center justify-center relative select-none"
+                style={{
+                  background: 'radial-gradient(circle at 35% 25%, #8b1010 0%, #3d0505 65%, #180000 100%)',
+                  border: '4px solid #ffd84a',
+                  boxShadow: '0 0 45px rgba(255, 216, 74, 0.9), inset 0 0 16px rgba(0,0,0,0.9), 0 12px 28px rgba(0,0,0,0.9)',
+                }}
+              >
+                <span
+                  className="font-display font-black text-[56px] italic leading-none select-none tracking-tight"
+                  style={{
+                    backgroundImage: 'linear-gradient(180deg, #ffffff 0%, #fff7c2 25%, #ffd84a 55%, #e08c12 85%, #8a4800 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 14px rgba(255,215,74,0.75))',
+                    WebkitTextStroke: '0.8px rgba(90, 30, 0, 0.9)',
+                  }}
+                >
+                  VS
+                </span>
+              </div>
+
+              {/* Round number badge */}
+              <motion.div
+                className="mt-3 px-6 py-1 rounded-full flex items-center justify-center border"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(30,10,25,0.95), rgba(10,2,8,0.95))',
+                  borderColor: 'rgba(255,216,74,0.6)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.8)',
+                }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <span className="font-display font-black text-[15px] tracking-widest text-gold-grad">
+                  ROUND DT{state.roundNo}
+                </span>
+              </motion.div>
+            </motion.div>
+
+            {/* 3. Right: Tiger Popup (Gliding in from right) */}
+            <motion.div
+              className="relative flex items-center justify-start"
+              style={{ width: 520, height: 320 }}
+              initial={{ x: 260, opacity: 0, scale: 0.85 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              exit={{ x: 220, opacity: 0, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 20 }}
+            >
+              <img
+                src={tigerLogoGif}
+                alt="Tiger Confrontation"
+                className="w-full h-full object-contain pointer-events-none select-none relative"
+                style={{
+                  filter: 'drop-shadow(0 0 25px rgba(255, 140, 20, 0.85)) drop-shadow(0 10px 20px rgba(0,0,0,0.9))',
+                  zIndex: 2,
+                }}
+              />
+            </motion.div>
           </div>
         </motion.div>
       )}
@@ -54,26 +170,34 @@ function BetsOpenFlash() {
         <motion.div
           key="open"
           className="absolute left-0 right-0 flex justify-center pointer-events-none"
-          style={{ top: 380, zIndex: 60 }}
+          style={{ top: 380, zIndex: 155 }}
           initial={{ opacity: 0, scale: 0.4 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.4 }}
           transition={{ type: 'spring', stiffness: 220, damping: 16 }}
         >
           <div
-            className="relative px-14 py-3 rounded-full flex items-center gap-3"
+            className="relative px-16 py-3.5 rounded-full flex items-center gap-4 overflow-hidden select-none"
             style={{
-              background: 'linear-gradient(180deg, rgba(90,16,48,.96), rgba(30,6,28,.96))',
-              border: '4px solid #f5c542',
-              boxShadow: '0 0 60px rgba(255,190,60,.75), 0 10px 30px rgba(0,0,0,.75)',
+              background: 'linear-gradient(180deg, rgba(110,18,55,0.98) 0%, rgba(55,8,30,0.98) 50%, rgba(20,3,15,0.98) 100%)',
+              border: '3.5px solid #ffe27a',
+              boxShadow:
+                '0 0 50px rgba(255,190,60,0.85), inset 0 2px 4px rgba(255,255,255,0.6), inset 0 -3px 6px rgba(0,0,0,0.9), 0 12px 36px rgba(0,0,0,0.95)',
             }}
           >
+            {/* Left golden diamond accent */}
+            <span className="text-[#ffe27a] text-[20px] font-black select-none" style={{ filter: 'drop-shadow(0 0 8px rgba(255,215,60,0.8))' }}>◆</span>
+
             <span
               className="font-display font-black text-[46px] tracking-wider text-gold-grad leading-none"
-              style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}
+              style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.95)) drop-shadow(0 0 16px rgba(255,215,60,0.6))' }}
             >
               PLACE YOUR BETS
             </span>
+
+            {/* Right golden diamond accent */}
+            <span className="text-[#ffe27a] text-[20px] font-black select-none" style={{ filter: 'drop-shadow(0 0 8px rgba(255,215,60,0.8))' }}>◆</span>
+
             <div className="sheen-bar" />
           </div>
         </motion.div>
@@ -92,7 +216,7 @@ function LastBetsFlash() {
         <motion.div
           key="last-bets"
           className="absolute left-0 right-0 flex justify-center pointer-events-none"
-          style={{ top: 380, zIndex: 60 }}
+          style={{ top: 380, zIndex: 155 }}
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: [1, 1.05, 1] }}
           exit={{ opacity: 0, scale: 1.35 }}
@@ -133,7 +257,7 @@ function BetsClosed() {
         <motion.div
           key="closed"
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          style={{ zIndex: 60, background: 'radial-gradient(circle at 50% 48%, rgba(120,0,0,.35), transparent 65%)' }}
+          style={{ zIndex: 155, background: 'radial-gradient(circle at 50% 48%, rgba(120,0,0,.35), transparent 65%)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -359,7 +483,8 @@ function Toast() {
 export default function PhaseOverlay() {
   return (
     <>
-      <GetReadyFlash />
+      <CinematicBlurVeil />
+      <DragonVsTigerConfrontation />
       <BetsOpenFlash />
       <LastBetsFlash />
       <BetsClosed />

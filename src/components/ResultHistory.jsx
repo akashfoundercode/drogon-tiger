@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../game/GameContext.jsx';
+import { sfx } from '../game/sound.js';
 import dragonFireGif from '../assets/gif/dragon_blue_fire_transparent.gif';
 import tigerFireGif from '../assets/gif/tiger_HD_1280x720_1.75s.gif';
 import tigerStillPng from '../assets/gif/tiger_still.png';
@@ -229,20 +230,21 @@ function TigerFlameAura() {
 }
 
 export default function ResultHistory() {
-  const { state } = useGame();
+  const { state, setModal } = useGame();
   const recent = state.history.slice(0, 14).reverse();
 
   return (
     <>
       {/* Animated dragon blue fire GIF with electric aura layer (behind top playing cards) */}
       <div
-        className="absolute pointer-events-none select-none"
+        className="absolute pointer-events-none select-none transition-opacity duration-300"
         style={{
           left: 360,
           top: 8,
           width: 450,
           height: 240,
           zIndex: 25,
+          opacity: state.phase === 'IDLE' ? 0 : 1,
         }}
       >
         {/* Background Electric Flame & Lightning Layer */}
@@ -262,13 +264,14 @@ export default function ResultHistory() {
 
       {/* Animated Tiger Fire GIF with fiery aura layer (right top, above last result right side) */}
       <div
-        className="absolute pointer-events-none select-none"
+        className="absolute pointer-events-none select-none transition-opacity duration-300"
         style={{
           left: 1000,
           top: -48,
           width: 610,
           height: 345,
           zIndex: 25,
+          opacity: state.phase === 'IDLE' ? 0 : 1,
         }}
       >
         {/* Background Fiery Flame & Lightning Layer */}
@@ -299,83 +302,105 @@ export default function ResultHistory() {
       </div>
 
       {/* History badges & Last Result text */}
-      <div className="absolute inset-0 pointer-events-none select-none" style={{ zIndex: 130 }}>
-        {/* Pure text "Last Result" aligned with history boxes */}
       <div
-        className="absolute flex items-center justify-end pointer-events-none select-none"
+        className="absolute inset-0 pointer-events-none select-none transition-opacity duration-300"
         style={{
-          left: 374,
-          top: 260,
-          width: 250,
-          height: 38,
+          zIndex: 130,
+          opacity: state.phase === 'IDLE' ? 0 : 1,
         }}
       >
-        <span
-          className="font-display font-black tracking-wider text-[22px] whitespace-nowrap leading-none italic"
+        {/* Clickable text "Last Result" opens 120 rounds history */}
+        <motion.button
+          onClick={() => {
+            sfx.select();
+            setModal('stats');
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Click to view 120 rounds roadmap"
+          className="absolute flex items-center justify-end pointer-events-auto select-none cursor-pointer focus:outline-none"
           style={{
-            backgroundImage: 'linear-gradient(180deg, #ffffff 0%, #fff7c2 22%, #ffd84a 50%, #e08c12 85%, #8a4800 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 10px rgba(255,215,74,0.55))',
-            WebkitTextStroke: '0.6px rgba(70, 25, 0, 0.8)',
+            left: 374,
+            top: 260,
+            width: 250,
+            height: 38,
+            background: 'none',
+            border: 'none',
           }}
         >
-          Last Result
-        </span>
-      </div>
-
-      {HISTORY_BOXES.map((box, idx) => {
-        const item = recent[idx];
-        if (!item) return null;
-        const cfg = BADGE_CONFIG[item.result] || BADGE_CONFIG.dragon;
-        const isLatest = idx === recent.length - 1;
-
-        return (
-          <motion.div
-            key={box.id}
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="absolute flex items-center justify-center font-body font-black"
+          <span
+            className="font-display font-black tracking-wider text-[22px] whitespace-nowrap leading-none italic transition-all group-hover:brightness-125"
             style={{
-              left: box.x - Math.floor(BADGE_W / 2),
-              top: BADGE_TOP,
-              width: BADGE_W,
-              height: BADGE_H,
-              borderRadius: 6,
-              background: cfg.bg,
-              color: cfg.color,
-              border: `1.5px solid ${isLatest ? '#ffe27a' : cfg.border}`,
-              boxShadow: isLatest
-                ? '0 0 10px 2px #ffe27a, 0 2px 4px rgba(0,0,0,0.85)'
-                : '0 2px 4px rgba(0,0,0,0.6)',
-              lineHeight: 1,
-              transformOrigin: 'center center',
+              backgroundImage: 'linear-gradient(180deg, #ffffff 0%, #fff7c2 22%, #ffd84a 50%, #e08c12 85%, #8a4800 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 10px rgba(255,215,74,0.55))',
+              WebkitTextStroke: '0.6px rgba(70, 25, 0, 0.8)',
             }}
           >
-            {isLatest && (
-              <motion.span
-                className="absolute -inset-1 rounded-lg pointer-events-none"
-                style={{ border: '2px solid #ffe27a', zIndex: 3 }}
-                animate={{ opacity: [0.3, 1, 0.3], scale: [0.95, 1.08, 0.95] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-              />
-            )}
+            Last Result
+          </span>
+        </motion.button>
 
-            {/* T, D, Tie badge text */}
-            <span
-              className="relative select-none"
+        {HISTORY_BOXES.map((box, idx) => {
+          const item = recent[idx];
+          if (!item) return null;
+          const cfg = BADGE_CONFIG[item.result] || BADGE_CONFIG.dragon;
+          const isLatest = idx === recent.length - 1;
+
+          return (
+            <motion.button
+              key={box.id}
+              onClick={() => {
+                sfx.select();
+                setModal('stats');
+              }}
+              whileHover={{ scale: 1.2, y: -2 }}
+              whileTap={{ scale: 0.9 }}
+              title={`Round #${item.roundNo || ''} - ${item.result.toUpperCase()} (Click to view 120 rounds)`}
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="absolute flex items-center justify-center font-body font-black pointer-events-auto cursor-pointer focus:outline-none"
               style={{
-                fontSize: item.result === 'tie' ? 11 : 16,
-                zIndex: 2,
-                fontWeight: 900,
-                textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                left: box.x - Math.floor(BADGE_W / 2),
+                top: BADGE_TOP,
+                width: BADGE_W,
+                height: BADGE_H,
+                borderRadius: 6,
+                background: cfg.bg,
+                color: cfg.color,
+                border: `1.5px solid ${isLatest ? '#ffe27a' : cfg.border}`,
+                boxShadow: isLatest
+                  ? '0 0 12px 3px #ffe27a, 0 2px 6px rgba(0,0,0,0.9)'
+                  : '0 2px 5px rgba(0,0,0,0.7)',
+                lineHeight: 1,
+                transformOrigin: 'center center',
               }}
             >
-              {cfg.text}
-            </span>
-          </motion.div>
-        );
-      })}
+              {isLatest && (
+                <motion.span
+                  className="absolute -inset-1 rounded-lg pointer-events-none"
+                  style={{ border: '2px solid #ffe27a', zIndex: 3 }}
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [0.95, 1.08, 0.95] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                />
+              )}
+
+              {/* T, D, Tie badge text */}
+              <span
+                className="relative select-none"
+                style={{
+                  fontSize: item.result === 'tie' ? 11 : 16,
+                  zIndex: 2,
+                  fontWeight: 900,
+                  textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                }}
+              >
+                {cfg.text}
+              </span>
+            </motion.button>
+          );
+        })}
       </div>
     </>
   );

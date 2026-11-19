@@ -18,37 +18,159 @@ function Laurel({ flip }) {
 function TimerRing({ timer }) {
   const total = TIMING.betting;
   const frac = Math.max(0, timer / total);
-  const r = 21;
+  const r = 23;
   const c = 2 * Math.PI * r;
   const danger = timer <= 5;
-  const color = danger ? '#ff4a4a' : '#ffd84a';
+  const critical = timer <= 3;
+
   return (
     <motion.div
-      className="absolute flex items-center justify-center"
-      style={{ left: -16, top: '50%', width: 44, height: 44, marginTop: -22 }}
-      animate={danger ? { scale: [1, 1.12, 1] } : { scale: 1 }}
-      transition={{ duration: 0.6, repeat: danger ? Infinity : 0 }}
+      className="absolute flex items-center justify-center select-none"
+      style={{
+        right: 18,
+        top: '50%',
+        width: 46,
+        height: 46,
+        marginTop: -23,
+        zIndex: 30,
+      }}
+      animate={
+        critical
+          ? { scale: [1, 1.12, 1] }
+          : danger
+            ? { scale: [1, 1.06, 1] }
+            : { scale: 1 }
+      }
+      transition={{ duration: critical ? 0.45 : 0.65, repeat: danger ? Infinity : 0 }}
     >
-      <svg width="44" height="44" viewBox="0 0 54 54" className="absolute">
-        <circle cx="27" cy="27" r="25" fill="#2a0808" stroke="#f5c542" strokeWidth="2.5" />
-        <circle cx="27" cy="27" r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="4.5" />
+      {/* Outer pulsing energy shockwave when in danger countdown */}
+      {danger && (
+        <motion.div
+          className="absolute inset-0 rounded-full pointer-events-none"
+          animate={{ scale: [1, 1.35], opacity: [0.85, 0] }}
+          transition={{ duration: 0.75, repeat: Infinity, ease: 'easeOut' }}
+          style={{
+            border: critical ? '2.5px solid #ff2222' : '2px solid #ff5555',
+            boxShadow: critical
+              ? '0 0 18px 4px rgba(255,0,0,0.85)'
+              : '0 0 12px 2px rgba(255,60,60,0.65)',
+          }}
+        />
+      )}
+
+      <svg width="46" height="46" viewBox="0 0 64 64" className="absolute overflow-visible">
+        <defs>
+          {/* 3D Metallic Gold Rim Gradient */}
+          <linearGradient id="timerGoldRim" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="25%" stopColor="#ffe680" />
+            <stop offset="60%" stopColor="#f5b81c" />
+            <stop offset="85%" stopColor="#b36e05" />
+            <stop offset="100%" stopColor="#4a2600" />
+          </linearGradient>
+
+          {/* 3D Crimson Danger Rim Gradient */}
+          <linearGradient id="timerDangerRim" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="30%" stopColor="#ff8080" />
+            <stop offset="65%" stopColor="#dc2626" />
+            <stop offset="100%" stopColor="#550505" />
+          </linearGradient>
+
+          {/* Liquid Gold Progress Arc */}
+          <linearGradient id="timerTrackGold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="35%" stopColor="#ffea75" />
+            <stop offset="75%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#d97706" />
+          </linearGradient>
+
+          {/* Fiery Red Danger Arc */}
+          <linearGradient id="timerTrackRed" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="40%" stopColor="#ff6b6b" />
+            <stop offset="100%" stopColor="#e11d48" />
+          </linearGradient>
+
+          {/* Inner Ruby-Enamel Jewel Background */}
+          <radialGradient id="timerInnerPlate" cx="45%" cy="40%" r="60%">
+            <stop offset="0%" stopColor={danger ? '#5a0a14' : '#380a18'} />
+            <stop offset="65%" stopColor={danger ? '#260206' : '#180208'} />
+            <stop offset="100%" stopColor="#080002" />
+          </radialGradient>
+        </defs>
+
+        {/* 1. Medallion Outer Shadow & Body */}
         <circle
-          cx="27"
-          cy="27"
+          cx="32"
+          cy="32"
+          r="30"
+          fill="url(#timerInnerPlate)"
+          stroke={danger ? 'url(#timerDangerRim)' : 'url(#timerGoldRim)'}
+          strokeWidth="3.2"
+          style={{
+            filter: danger
+              ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.95)) drop-shadow(0 0 14px rgba(255,30,30,0.7))'
+              : 'drop-shadow(0 4px 10px rgba(0,0,0,0.95)) drop-shadow(0 0 12px rgba(245,184,28,0.5))',
+          }}
+        />
+
+        {/* 2. Inset Inner Border Ring */}
+        <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(0,0,0,0.6)" strokeWidth="1" />
+
+        {/* 3. Subtle Background Arc Track */}
+        <circle
+          cx="32"
+          cy="32"
           r={r}
           fill="none"
-          stroke={color}
-          strokeWidth="4.5"
+          stroke={danger ? 'rgba(255,80,80,0.18)' : 'rgba(255,215,80,0.18)'}
+          strokeWidth="4.8"
+        />
+
+        {/* 4. Active Countdown Energy Arc */}
+        <circle
+          cx="32"
+          cy="32"
+          r={r}
+          fill="none"
+          stroke={danger ? 'url(#timerTrackRed)' : 'url(#timerTrackGold)'}
+          strokeWidth="4.8"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - frac)}
-          transform="rotate(-90 27 27)"
-          style={{ transition: 'stroke-dashoffset 1s linear, stroke .3s', filter: `drop-shadow(0 0 4px ${color})` }}
+          transform="rotate(-90 32 32)"
+          style={{
+            transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease',
+            filter: danger
+              ? 'drop-shadow(0 0 6px #ff3b3b) drop-shadow(0 0 12px rgba(255,0,0,0.8))'
+              : 'drop-shadow(0 0 6px #ffd94a) drop-shadow(0 0 10px rgba(255,180,20,0.75))',
+          }}
         />
+
+        {/* 5. 4 Luxury Chronometer Jewel Pips (12, 3, 6, 9 o'clock) */}
+        <circle cx="32" cy="7" r="1.5" fill="#ffe27a" />
+        <circle cx="57" cy="32" r="1.5" fill="#ffe27a" />
+        <circle cx="32" cy="57" r="1.5" fill="#ffe27a" />
+        <circle cx="7" cy="32" r="1.5" fill="#ffe27a" />
       </svg>
-      <span className="relative font-body font-extrabold text-[18px] leading-none" style={{ color }}>
+
+      {/* 6. Dynamic Scaling 3D Number Digit */}
+      <motion.span
+        key={timer}
+        initial={{ scale: 1.25, opacity: 0.85 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 600, damping: 25 }}
+        className="relative font-display font-black text-[19px] leading-none select-none"
+        style={{
+          color: danger ? '#ff9999' : '#fff5b8',
+          textShadow: danger
+            ? '0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(255,30,30,0.9), 0 0 18px rgba(255,0,0,0.6)'
+            : '0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(255,215,60,0.9), 0 0 16px rgba(255,160,20,0.5)',
+        }}
+      >
         {timer}
-      </span>
+      </motion.span>
     </motion.div>
   );
 }
@@ -102,7 +224,7 @@ export default function StatusBanner() {
         <AnimatePresence mode="wait">
           <motion.div
             key={text}
-            className="flex flex-col items-center leading-none"
+            className={`flex flex-col items-center leading-none ${phase === PHASES.BETTING ? '-translate-x-10' : ''}`}
             initial={{ opacity: 0, y: 8, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8 }}

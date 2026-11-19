@@ -100,7 +100,7 @@ function FlyingChip({ spec }) {
       <Chip
         value={spec.value}
         size={CHIP_SIZE}
-        style={spec.mine ? { outline: '2px solid #ffe27a', outlineOffset: 1 } : undefined}
+        style={spec.mine ? { boxShadow: '0 0 0 2px #ffe27a, 0 0 10px rgba(255,226,122,0.9)' } : undefined}
       />
     </motion.div>
   );

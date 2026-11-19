@@ -32,8 +32,7 @@ function RoundButton({ children, onClick, label }) {
 
 
 export default function Header() {
-  const { state, actions, toast } = useGame();
-  const [modal, setModal] = useState(null);
+  const { state, actions, toast, modal, setModal } = useGame();
   const [fs, setFs] = useState(isFullscreen());
 
   useEffect(() => {
@@ -93,8 +92,14 @@ export default function Header() {
 
       {/* centre: cards with VS emblem */}
       <div
-        className="absolute flex items-center justify-center gap-7"
-        style={{ left: '50%', transform: 'translateX(-50%)', top: 52, zIndex: 140 }}
+        className="absolute flex items-center justify-center gap-7 transition-opacity duration-300"
+        style={{
+          left: '50%',
+          transform: 'translateX(-50%)',
+          top: 52,
+          zIndex: 140,
+          opacity: phase === PHASES.IDLE ? 0 : 1,
+        }}
       >
         <PlayingCard
           card={cards.dragon}

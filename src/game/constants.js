@@ -11,7 +11,7 @@ export const PHASES = {
 
 // Durations in ms (betting is in seconds)
 export const TIMING = {
-  idle: 2500,
+  idle: 2800,
   betting: 15,
   closed: 2400,
   revealDragon: 900,

@@ -4,7 +4,7 @@ import { useGame } from '../game/GameContext.jsx';
 import { PHASES } from '../game/constants.js';
 import tigerJumpGif from '../assets/winning/tiger_jump_HD_1280x720_3.4s.gif';
 import dragonJumpGif from '../assets/winning/dragon_jump_winning.gif';
-import dragonStandingPng from '../assets/winning/dragon_standing.png';
+import { sfx } from '../game/sound.js';
 
 // Section 23 (Tiger Box - Right Red) Coordinates
 const BOX_23_X = 1298;
@@ -69,19 +69,26 @@ export default function WinnerAnimation() {
   const winner = state.result?.winner;
   const isTigerWin = isResult && winner === 'tiger';
   const isDragonWin = isResult && winner === 'dragon';
-  const [dragonLanded, setDragonLanded] = useState(false);
+
+  useEffect(() => {
+    if (isTigerWin) {
+      return () => {
+        sfx.stopTigerAudio();
+      };
+    }
+    sfx.stopTigerAudio();
+    return undefined;
+  }, [isTigerWin, state.roundNo]);
 
   useEffect(() => {
     if (isDragonWin) {
-      setDragonLanded(false);
-      // The fly animation reaches its glorious landing & standing pose at 4.45s
-      // We freeze & hold the majestic standing pose so it never snaps back to flying
-      const timer = setTimeout(() => {
-        setDragonLanded(true);
-      }, 4450);
-      return () => clearTimeout(timer);
+      // Dragon fly sound starts, and at 2.7s roar plays
+      sfx.dragonFly();
+      return () => {
+        sfx.stopDragonAudio();
+      };
     }
-    setDragonLanded(false);
+    sfx.stopDragonAudio();
     return undefined;
   }, [isDragonWin, state.roundNo]);
 
@@ -326,6 +333,7 @@ export default function WinnerAnimation() {
             transition={{ opacity: { duration: 0.15 } }}
           >
             <img
+              key={`tiger-${state.roundNo}`}
               src={`${tigerJumpGif}?round=${state.roundNo}`}
               alt="Tiger Breakthrough Winning"
               className="w-full h-full object-contain pointer-events-none select-none"
@@ -564,7 +572,7 @@ export default function WinnerAnimation() {
             ))}
           </div>
 
-          {/* 6. HERO DRAGON FLY & STANDING ANIMATION */}
+          {/* 6. HERO DRAGON FLY & WINNING ANIMATION (plays continuously without stopping) */}
           <motion.div
             className="absolute pointer-events-none"
             style={{
@@ -572,55 +580,29 @@ export default function WinnerAnimation() {
               top: DRAGON_GIF_TOP,
               width: DRAGON_GIF_WIDTH,
               height: DRAGON_GIF_HEIGHT,
+              transformOrigin: '50% 88%',
             }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.4 } }}
+            initial={{ opacity: 0, scale: 0.74 }}
+            animate={{ opacity: 1, scale: 0.74 }}
+            exit={{ opacity: 0, scale: 0.74, transition: { duration: 0.4 } }}
             transition={{ opacity: { duration: 0.15 } }}
           >
-            {!dragonLanded ? (
-              <img
-                key={`fly-${state.roundNo}`}
-                src={`${dragonJumpGif}?round=${state.roundNo}`}
-                alt="Dragon Breakthrough Winning"
-                className="w-full h-full object-contain pointer-events-none select-none"
-                style={{
-                  filter: 'drop-shadow(0 0 35px rgba(0,229,255,0.9)) drop-shadow(0 14px 26px rgba(0,0,0,0.95))',
-                }}
-              />
-            ) : (
-              <motion.div
-                key={`stand-${state.roundNo}`}
-                className="w-full h-full relative"
-                initial={{ opacity: 0.85 }}
-                animate={{
-                  opacity: 1,
-                  scale: [1, 1.018, 1],
-                  y: [0, -3, 0],
-                }}
-                transition={{
-                  duration: 2.2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              >
-                <img
-                  src={dragonStandingPng}
-                  alt="Dragon Standing Victory"
-                  className="w-full h-full object-contain pointer-events-none select-none"
-                  style={{
-                    filter: 'drop-shadow(0 0 40px rgba(0,229,255,0.95)) drop-shadow(0 0 15px rgba(255,255,255,0.8)) drop-shadow(0 16px 28px rgba(0,0,0,0.95))',
-                  }}
-                />
-              </motion.div>
-            )}
+            <img
+              key={`fly-${state.roundNo}`}
+              src={`${dragonJumpGif}?round=${state.roundNo}`}
+              alt="Dragon Breakthrough Winning"
+              className="w-full h-full object-contain pointer-events-none select-none"
+              style={{
+                filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.85))',
+              }}
+            />
           </motion.div>
 
-          {/* 7. "DRAGON WINS" Crown Banner */}
+          {/* 7. "DRAGON WINS" Crown Banner - Positioned to the right side of dragon, completely clear of the GIF */}
           <motion.div
             className="absolute pointer-events-none"
             style={{
-              left: BOX_21_X,
+              left: 1260,
               top: 235,
               transform: 'translateX(-50%)',
             }}
@@ -630,15 +612,15 @@ export default function WinnerAnimation() {
             transition={{ delay: 0.22, type: 'spring', stiffness: 380, damping: 18 }}
           >
             <div
-              className="relative px-11 py-2.5 rounded-full flex items-center gap-3"
+              className="relative px-9 py-2.5 rounded-full flex items-center gap-3"
               style={{
                 background: 'linear-gradient(180deg, rgba(3,25,75,0.96), rgba(1,10,35,0.96))',
                 border: '3px solid #00e5ff',
-                boxShadow: '0 0 45px rgba(0,229,255,0.9), 0 10px 25px rgba(0,0,0,0.85)',
+                boxShadow: '0 0 35px rgba(0,229,255,0.85), 0 10px 25px rgba(0,0,0,0.85)',
               }}
             >
               <span
-                className="font-display font-black text-[42px] tracking-widest leading-none select-none italic"
+                className="font-display font-black text-[38px] tracking-widest leading-none select-none italic"
                 style={{
                   background: 'linear-gradient(180deg, #ffffff 0%, #b3f0ff 22%, #00e5ff 52%, #0077ff 82%, #002b80 100%)',
                   WebkitBackgroundClip: 'text',

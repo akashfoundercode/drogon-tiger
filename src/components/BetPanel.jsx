@@ -59,7 +59,11 @@ const PileChip = memo(function PileChip({ chip }) {
         animate={{ scale: 1.9, opacity: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       />
-      <Chip value={chip.value} size={CHIP_SIZE} style={chip.mine ? { outline: '2px solid #ffe27a', outlineOffset: 1 } : undefined} />
+      <Chip
+        value={chip.value}
+        size={CHIP_SIZE}
+        style={chip.mine ? { boxShadow: '0 0 0 2px #ffe27a, 0 0 8px rgba(255,226,122,0.85)' } : undefined}
+      />
     </motion.div>
   );
 });

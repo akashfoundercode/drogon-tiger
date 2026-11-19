@@ -15,36 +15,56 @@ const CHIP_CENTERS_X = [650, 750, 850, 950, 1051];
 const CHIP_CENTER_Y = 694;
 const CHIP_SIZE = 74;
 
-function CircleActionBtn({ children, onClick, disabled, label, size = 66, subLabel }) {
+function CircleActionBtn({ children, onClick, disabled, label, size = 66, name }) {
   return (
-    <motion.button
-      aria-label={label}
-      onClick={onClick}
-      whileHover={disabled ? undefined : { scale: 1.15 }}
-      whileTap={disabled ? undefined : { scale: 0.90 }}
-      className="flex flex-col items-center justify-center font-body font-black shrink-0 outline-none select-none transition-transform"
-      style={{
-        width: size,
-        height: size,
-        background: 'transparent',
-        border: 'none',
-        boxShadow: 'none',
-        opacity: disabled ? 0.4 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-    >
-      {children}
-      {subLabel && (
-        <span
-          className="text-[11px] font-black uppercase tracking-wider text-[#fff4b8] -mt-0.5 leading-none"
+    <div className="flex flex-col items-center select-none">
+      {/* 1. Transparent Button - relies on background image, no extra circle drawn */}
+      <motion.button
+        aria-label={label}
+        onClick={onClick}
+        whileHover={disabled ? undefined : { scale: 1.14 }}
+        whileTap={disabled ? undefined : { scale: 0.90, y: 2 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+        className="flex items-center justify-center outline-none select-none transition-transform cursor-pointer"
+        style={{
+          width: size,
+          height: size,
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          opacity: disabled ? 0.65 : 1,
+          filter: disabled ? 'grayscale(0.2)' : undefined,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {children}
+      </motion.button>
+
+      {/* 2. Name OUTSIDE the circle (underneath) - High-visibility Dark badge */}
+      {name && (
+        <div
+          className="mt-1 px-3 py-[3px] rounded-md flex items-center justify-center pointer-events-none"
           style={{
-            textShadow: '0 2px 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.9), 0 0 10px rgba(255,215,0,0.7)',
+            background: 'linear-gradient(180deg, rgba(22,7,10,0.98), rgba(8,2,4,0.98))',
+            border: '1.5px solid rgba(255,215,74,0.75)',
+            boxShadow: '0 3px 8px rgba(0,0,0,0.9), 0 0 10px rgba(255,200,40,0.25)',
+            opacity: disabled ? 0.68 : 1,
           }}
         >
-          {subLabel}
-        </span>
+          <span
+            className="text-[12px] font-body font-black uppercase tracking-wider leading-none select-none"
+            style={{
+              background: 'linear-gradient(180deg, #ffffff 0%, #fff0a0 35%, #ffd84a 75%, #f59e0b 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.95))',
+            }}
+          >
+            {name}
+          </span>
+        </div>
       )}
-    </motion.button>
+    </div>
   );
 }
 
@@ -171,30 +191,38 @@ export default function BottomBar() {
         );
       })}
 
-      {/* 2b. Two Action Circles right next to Chip 29 (Refresh & x2) */}
+      {/* 2b. Two Action Circles right next to Chip 29 (Repeat & Into/Double) */}
       <div
         className="absolute pointer-events-auto"
         style={{
-          left: 1192 - 33,
-          top: -2 - 33,
-          width: 66,
-          height: 66,
+          left: 1192 - 35,
+          top: -30,
+          width: 70,
+          height: 84,
         }}
       >
-        <CircleActionBtn label="Repeat previous bet" disabled={!open || !lastTotal} onClick={actions.repeatBet} size={66} subLabel="REPEAT">
+        <CircleActionBtn
+          label="Repeat previous bet"
+          disabled={!open || !lastTotal}
+          onClick={actions.repeatBet}
+          size={60}
+          name="REPEAT"
+        >
           <RotateCcw
-            size={30}
-            strokeWidth={3.4}
-            color="#fff099"
+            size={36}
+            strokeWidth={3.8}
+            color="#ffe27a"
             style={{
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 10px rgba(255,200,50,0.9))',
+              filter:
+                'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 10px rgba(255,215,50,0.9)) drop-shadow(0 0 18px rgba(255,160,20,0.5))',
             }}
           />
         </CircleActionBtn>
       </div>
 
+      {/* x2 Button: Hidden circle hit area, no background, just the ×2 button */}
       <div
-        className="absolute pointer-events-auto"
+        className="absolute pointer-events-auto flex items-center justify-center"
         style={{
           left: 1274 - 33,
           top: -2 - 33,
@@ -202,59 +230,87 @@ export default function BottomBar() {
           height: 66,
         }}
       >
-        <CircleActionBtn label="Double bet" disabled={!open || !totalBet} onClick={actions.doubleBet} size={66} subLabel="DOUBLE">
+        <motion.button
+          aria-label="Double bet (x2)"
+          disabled={!open || !totalBet}
+          onClick={actions.doubleBet}
+          whileHover={!open || !totalBet ? undefined : { scale: 1.15 }}
+          whileTap={!open || !totalBet ? undefined : { scale: 0.90, y: 2 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+          className="w-full h-full rounded-full flex items-center justify-center outline-none select-none transition-transform cursor-pointer"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            opacity: !open || !totalBet ? 0.65 : 1,
+            filter: !open || !totalBet ? 'grayscale(0.2)' : undefined,
+            cursor: !open || !totalBet ? 'not-allowed' : 'pointer',
+          }}
+        >
           <span
-            className="text-[28px] font-black leading-none tracking-tight"
+            className="text-[34px] font-black leading-none tracking-tight select-none"
             style={{
-              background: 'linear-gradient(180deg,#ffffff 0%,#fff1a8 40%,#ffd233 100%)',
+              background: 'linear-gradient(180deg,#ffffff 0%,#fff2a8 40%,#ffd233 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 10px rgba(255,180,30,0.9))',
-              WebkitTextStroke: '1px rgba(90,30,0,0.7)',
+              filter:
+                'drop-shadow(0 2px 4px rgba(0,0,0,0.95)) drop-shadow(0 0 10px rgba(255,215,50,0.9)) drop-shadow(0 0 18px rgba(255,160,20,0.5))',
+              WebkitTextStroke: '1px rgba(100,35,0,0.7)',
             }}
           >
             ×2
           </span>
-        </CircleActionBtn>
+        </motion.button>
       </div>
 
-      {/* 3. Bottom-Right Controls & Status (Clear button & ID/Ping info) */}
+      {/* 3. Bottom-Right Controls & Status: Gold CLEAR button + ID/Round/Ping info */}
       <div
         className="absolute flex items-center pointer-events-auto"
         style={{
-          left: 1360,
-          top: -31,
-          width: 480,
-          height: 58,
+          left: 1345,
+          top: -32,
+          width: 505,
+          height: 62,
         }}
       >
         <motion.button
           aria-label="Clear bets"
           onClick={actions.clearBets}
-          whileHover={open && totalBet ? { scale: 1.08 } : undefined}
-          whileTap={open && totalBet ? { scale: 0.92 } : undefined}
-          className="flex items-center justify-center font-body font-black text-[19px] rounded-full px-6 shrink-0 outline-none select-none"
+          whileHover={open && totalBet > 0 ? { scale: 1.05 } : undefined}
+          whileTap={open && totalBet > 0 ? { scale: 0.94 } : undefined}
+          className="relative flex items-center justify-center font-display font-black text-[22px] tracking-[0.18em] rounded-full outline-none select-none shrink-0 overflow-hidden"
           style={{
-            height: 54,
-            minWidth: 110,
-            color: '#4a2d00',
-            background: 'linear-gradient(180deg,#fff4b8 0%,#f5b81c 50%,#b87006 100%)',
-            border: '3px solid #ffe27a',
-            boxShadow: '0 4px 14px rgba(0,0,0,.75), inset 0 2px 3px rgba(255,255,255,.8), 0 0 12px rgba(245,184,28,.5)',
-            opacity: open && totalBet ? 1 : 0.45,
-            cursor: open && totalBet ? 'pointer' : 'not-allowed',
+            width: 310,
+            height: 58,
+            background: 'linear-gradient(180deg, #3d0c18 0%, #22040d 50%, #120106 100%)',
+            border: open && totalBet > 0 ? '2px solid #e5ad35' : '2px solid #805814',
+            boxShadow:
+              '0 4px 14px rgba(0,0,0,0.95), inset 0 1px 2px rgba(255,215,100,0.35), inset 0 -2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(229,173,53,0.35)',
+            opacity: 1,
+            cursor: open && totalBet > 0 ? 'pointer' : 'not-allowed',
           }}
         >
-          CLEAR
+          <span
+            style={{
+              color: open && totalBet > 0 ? '#ffe580' : '#caa765',
+              textShadow:
+                open && totalBet > 0
+                  ? '0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(255,215,60,0.85), 0 0 18px rgba(255,160,20,0.5)'
+                  : '0 2px 4px rgba(0,0,0,0.9)',
+            }}
+          >
+            CLEAR
+          </span>
+          {Boolean(open && totalBet > 0) && <div className="sheen-bar" />}
         </motion.button>
 
-        <div className="ml-5 flex-1 flex items-center justify-between pr-4 font-body text-[13px] font-semibold text-white/80">
-          <button onClick={copy} className="flex items-center gap-1.5 hover:text-white transition-colors">
-            ID: <span className="text-[#ffe27a] font-bold">{userId}</span> <Copy size={13} color="#ffe27a" />
+        <div className="ml-4 flex-1 flex items-center justify-between pr-3 font-body text-[12.5px] font-semibold text-white/80">
+          <button onClick={copy} className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer">
+            ID: <span className="text-[#ffe27a] font-bold">{userId}</span> <Copy size={12} color="#ffe27a" />
           </button>
-          <span className="text-white/60">Round DT{state.roundNo}</span>
-          <span className="flex items-center gap-1.5 font-bold" style={{ color: wifiColor }}>
-            <Wifi size={15} /> {state.ping}ms
+          <span className="text-white/60 text-[11.5px]">DT{state.roundNo}</span>
+          <span className="flex items-center gap-1 font-bold text-[12px]" style={{ color: wifiColor }}>
+            <Wifi size={13} /> {state.ping}ms
           </span>
         </div>
       </div>

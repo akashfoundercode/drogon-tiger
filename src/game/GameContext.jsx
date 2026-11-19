@@ -210,7 +210,12 @@ export function GameProvider({ children }) {
       return () => ts.forEach(clearTimeout);
     }
     if (phase === PHASES.RESULT) {
-      const t = setTimeout(() => dispatch({ type: 'NEXT_ROUND' }), TIMING.result);
+      const isDragon = state.result?.winner === 'dragon';
+      const isTiger = state.result?.winner === 'tiger';
+      // Dragon: 4.73s GIF + roar finish -> 5800ms
+      // Tiger: 3.38s GIF + roar finish -> 4400ms
+      const dur = isDragon ? 5800 : isTiger ? 4400 : TIMING.result;
+      const t = setTimeout(() => dispatch({ type: 'NEXT_ROUND' }), dur);
       return () => clearTimeout(t);
     }
     return undefined;
@@ -284,6 +289,8 @@ export function GameProvider({ children }) {
     return () => clearInterval(iv);
   }, []);
 
+  const [modal, setModal] = useState(null);
+
   const value = useMemo(
     () => ({
       state,
@@ -294,9 +301,11 @@ export function GameProvider({ children }) {
       toast,
       forceWinner,
       setForceWinner,
+      modal,
+      setModal,
       actions: { placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance },
     }),
-    [state, flying, removeFlying, landChip, toast, forceWinner, setForceWinner, placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance]
+    [state, flying, removeFlying, landChip, toast, forceWinner, setForceWinner, modal, placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance]
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

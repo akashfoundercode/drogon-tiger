@@ -7,9 +7,15 @@ const sum = (b) => b.dragon + b.tie + b.tiger;
 
 function seedHistory() {
   const out = [];
-  for (let i = 0; i < 24; i++) {
+  const baseRound = 1000120;
+  for (let i = 0; i < 120; i++) {
     const r = Math.random();
-    out.push({ id: `seed${i}`, result: r < 0.44 ? 'dragon' : r < 0.88 ? 'tiger' : 'tie' });
+    const result = r < 0.45 ? 'dragon' : r < 0.90 ? 'tiger' : 'tie';
+    out.push({
+      id: `seed${i}`,
+      roundNo: baseRound - i,
+      result,
+    });
   }
   return out;
 }
@@ -82,7 +88,7 @@ export function reducer(state, action) {
         phase: PHASES.RESULT,
         balance: state.balance + payout,
         bots,
-        history: [{ id: `r${state.roundNo}`, result: winner }, ...state.history].slice(0, 60),
+        history: [{ id: `r${state.roundNo}`, roundNo: state.roundNo, result: winner }, ...state.history].slice(0, 120),
         result: { winner, stake, payout, net: payout - stake },
       };
     }

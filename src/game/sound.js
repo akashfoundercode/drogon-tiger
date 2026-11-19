@@ -33,14 +33,164 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Pre-decoded AudioBuffers for Web Audio API (ensures 100% reliable playback on mobile devices)
+const buffers = {
+  dragonFly: null,
+  dragonRoar: null,
+  lionRoar: null,
+};
+
+let buffersLoading = false;
+function loadBuffers() {
+  if (buffersLoading || typeof window === 'undefined') return;
+  const c = audio();
+  if (!c) return;
+  buffersLoading = true;
+
+  const fetchAndDecode = async (url, key) => {
+    try {
+      const res = await fetch(url);
+      const arrayBuf = await res.arrayBuffer();
+      c.decodeAudioData(
+        arrayBuf,
+        (decoded) => {
+          buffers[key] = decoded;
+        },
+        (err) => {
+          console.warn('Decode error for', key, err);
+        }
+      );
+    } catch (err) {
+      console.warn('Fetch error for', key, err);
+    }
+  };
+
+  fetchAndDecode(dragonFlyMp3, 'dragonFly');
+  fetchAndDecode(dragonRoarMp3, 'dragonRoar');
+  fetchAndDecode(lionRoarMp3, 'lionRoar');
+}
+
+// Mobile Audio Auto-unlocker: unlocks Web Audio & HTML5 Audio on the first user interaction
+let unlocked = false;
+function unlockAudio() {
+  const c = audio();
+  if (c && c.state === 'suspended') {
+    c.resume().catch(() => {});
+  }
+
+  if (c && !unlocked) {
+    try {
+      // 1-sample silent sound to unlock iOS Safari Web Audio
+      const b = c.createBuffer(1, 1, 22050);
+      const s = c.createBufferSource();
+      s.buffer = b;
+      s.connect(c.destination);
+      s.start(0);
+    } catch {}
+  }
+
+  // Pre-unlock HTML5 audio elements on mobile
+  if (!unlocked) {
+    [dragonFlyAudio, dragonRoarAudio, lionAudio].forEach((a) => {
+      if (a) {
+        try {
+          const p = a.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => {
+              a.pause();
+              a.currentTime = 0;
+            }).catch(() => {});
+          }
+        } catch {}
+      }
+    });
+  }
+
+  loadBuffers();
+  unlocked = true;
+}
+
+if (typeof window !== 'undefined') {
+  ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'click', 'keydown'].forEach((evt) => {
+    window.addEventListener(evt, unlockAudio, { capture: true, passive: true });
+    document.addEventListener(evt, unlockAudio, { capture: true, passive: true });
+  });
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(loadBuffers, 100);
+  } else {
+    window.addEventListener('DOMContentLoaded', () => setTimeout(loadBuffers, 100));
+  }
+}
+
 function audio() {
-  if (!ctx) {
+  if (!ctx && typeof window !== 'undefined') {
     const C = window.AudioContext || window.webkitAudioContext;
     if (!C) return null;
     ctx = new C();
   }
-  if (ctx.state === 'suspended') ctx.resume();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
   return ctx;
+}
+
+// Track currently active Web Audio BufferSource nodes so they can be stopped on demand
+const activeBufferNodes = {
+  dragonFly: null,
+  dragonRoar: null,
+  lionRoar: null,
+};
+
+function playAudioBuffer(key, vol = 1) {
+  if (!enabled) return;
+  const c = audio();
+  if (!c) return;
+
+  const buf = buffers[key];
+  if (!buf) {
+    loadBuffers();
+    return;
+  }
+
+  try {
+    if (c.state === 'suspended') {
+      c.resume().catch(() => {});
+    }
+
+    // Stop any currently playing node for this key
+    stopAudioBuffer(key);
+
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const gain = c.createGain();
+    const effectiveVol = Math.max(0, Math.min(1, vol * volume));
+    gain.gain.setValueAtTime(effectiveVol, c.currentTime);
+
+    src.connect(gain);
+    gain.connect(c.destination);
+    src.start(0);
+
+    activeBufferNodes[key] = src;
+    src.onended = () => {
+      if (activeBufferNodes[key] === src) {
+        activeBufferNodes[key] = null;
+      }
+    };
+  } catch (err) {
+    console.warn('playAudioBuffer error:', key, err);
+  }
+}
+
+function stopAudioBuffer(key) {
+  const node = activeBufferNodes[key];
+  if (node) {
+    try {
+      node.stop(0);
+      node.disconnect();
+    } catch {}
+    activeBufferNodes[key] = null;
+  }
 }
 
 function tone({ freq = 440, type = 'sine', dur = 0.1, vol = 0.1, slide = 0, delay = 0 }) {
@@ -133,9 +283,6 @@ export const sfx = {
   },
   tigerImpact() {
     if (!enabled) return;
-    const c = audio();
-    if (!c) return;
-
     // 0. Violent wall break / shatter impact crunch at t=0
     noise({ dur: 0.38, vol: 0.35, hp: 350 });
     tone({ freq: 65, type: 'sawtooth', dur: 0.5, vol: 0.4, slide: -35 });
@@ -148,7 +295,10 @@ export const sfx = {
   tigerRoar() {
     if (!enabled) return;
 
-    // Play HQ Lion Roar MP3
+    // 1. Play via Web Audio API Buffer (bypasses mobile browser autoplay restrictions!)
+    playAudioBuffer('lionRoar', 1);
+
+    // 2. Play HQ Lion Roar MP3 as dual-fallback
     try {
       if (!lionAudio) {
         lionAudio = new Audio(lionRoarMp3);
@@ -194,9 +344,7 @@ export const sfx = {
       bp.connect(gain);
       gain.connect(c.destination);
       noiseSrc.start(now);
-    } catch {
-      // Fallback
-    }
+    } catch {}
 
     // 3. Dual detuned roar pitch slide
     tone({ freq: 96, type: 'sawtooth', dur: 1.8, vol: 0.2, slide: 35, delay: 0.05 });
@@ -209,9 +357,6 @@ export const sfx = {
   },
   dragonImpact() {
     if (!enabled) return;
-    const c = audio();
-    if (!c) return;
-
     // Breakthrough wall crack / thunder impact at t=0
     noise({ dur: 0.42, vol: 0.38, hp: 280 });
     tone({ freq: 55, type: 'sawtooth', dur: 0.6, vol: 0.45, slide: -30 });
@@ -221,32 +366,17 @@ export const sfx = {
   },
   dragonFly() {
     if (!enabled) return;
+
+    // 1. Play via Web Audio API Buffer (bypasses mobile browser autoplay restrictions!)
+    playAudioBuffer('dragonFly', 1);
+
+    // 2. Play via HTML5 Audio
     try {
       if (!dragonFlyAudio) {
         dragonFlyAudio = new Audio(dragonFlyMp3);
       }
       dragonFlyAudio.volume = Math.max(0, Math.min(1, volume));
       dragonFlyAudio.currentTime = 0;
-
-      if (this._dragonFlyTimer) {
-        clearTimeout(this._dragonFlyTimer);
-        this._dragonFlyTimer = null;
-      }
-
-      let roarTriggered = false;
-      const triggerRoar = () => {
-        if (!roarTriggered && enabled) {
-          roarTriggered = true;
-          if (this._dragonFlyTimer) {
-            clearTimeout(this._dragonFlyTimer);
-            this._dragonFlyTimer = null;
-          }
-          this.dragonRoar();
-        }
-      };
-
-      // Flying sound ke baad roar sound thoda aur pehle play ho (2.7s par)
-      this._dragonFlyTimer = setTimeout(triggerRoar, 2700);
 
       const playPromise = dragonFlyAudio.play();
       if (playPromise !== undefined) {
@@ -257,11 +387,32 @@ export const sfx = {
     } catch (err) {
       console.warn('Dragon fly audio error:', err);
     }
+
+    if (this._dragonFlyTimer) {
+      clearTimeout(this._dragonFlyTimer);
+      this._dragonFlyTimer = null;
+    }
+
+    let roarTriggered = false;
+    const triggerRoar = () => {
+      if (!roarTriggered && enabled) {
+        roarTriggered = true;
+        if (this._dragonFlyTimer) {
+          clearTimeout(this._dragonFlyTimer);
+          this._dragonFlyTimer = null;
+        }
+        this.dragonRoar();
+      }
+    };
+
+    // Flying sound ke baad roar sound 2.7s par trigger hoga
+    this._dragonFlyTimer = setTimeout(triggerRoar, 2700);
   },
   dragonRoar() {
     if (!enabled) return;
 
-    // 1. Pause fly audio when roar starts so sound is clear
+    // 1. Stop fly audio
+    stopAudioBuffer('dragonFly');
     try {
       if (dragonFlyAudio) {
         dragonFlyAudio.onended = null;
@@ -269,7 +420,10 @@ export const sfx = {
       }
     } catch {}
 
-    // 2. Play real Dragon Roar MP3 when dragon lands in standing position
+    // 2. Play via Web Audio API Buffer
+    playAudioBuffer('dragonRoar', 1);
+
+    // 3. Play via HTML5 Audio
     try {
       if (!dragonRoarAudio) {
         dragonRoarAudio = new Audio(dragonRoarMp3);
@@ -286,10 +440,7 @@ export const sfx = {
       console.warn('Dragon audio error:', err);
     }
 
-    const c = audio();
-    if (!c) return;
-
-    // 3. Regal Dragon victory fanfare in bright celestial chords
+    // 4. Regal Dragon victory fanfare in bright celestial chords
     [440, 554, 659, 880, 1108, 1318].forEach((f, i) =>
       tone({ freq: f, type: 'triangle', dur: 0.45, vol: 0.11, delay: 0.2 + i * 0.08 })
     );
@@ -299,6 +450,8 @@ export const sfx = {
       clearTimeout(this._dragonFlyTimer);
       this._dragonFlyTimer = null;
     }
+    stopAudioBuffer('dragonFly');
+    stopAudioBuffer('dragonRoar');
     [dragonFlyAudio, dragonRoarAudio].forEach((a) => {
       if (a) {
         try {
@@ -320,6 +473,7 @@ export const sfx = {
       clearTimeout(this._tigerTimer);
       this._tigerTimer = null;
     }
+    stopAudioBuffer('lionRoar');
     if (lionAudio) {
       try {
         lionAudio.pause();

@@ -17,7 +17,9 @@ import tigerLogoGif from '../assets/gif/tiger.gif';
 function CinematicBlurVeil() {
   const { state } = useGame();
   const showBlur =
+    state.phase === PHASES.VERSUS ||
     state.phase === PHASES.IDLE ||
+    state.phase === PHASES.PLACE_BETS ||
     (state.phase === PHASES.BETTING && state.timer >= 14) ||
     state.phase === PHASES.CLOSED;
 
@@ -49,7 +51,7 @@ function CinematicBlurVeil() {
 /* Dragon vs Tiger Confrontation Popup – pops up on new round start with Dragon on left, Tiger on right, and "VS" in center */
 function DragonVsTigerConfrontation() {
   const { state } = useGame();
-  const show = state.phase === PHASES.IDLE;
+  const show = state.phase === PHASES.VERSUS || state.phase === PHASES.IDLE;
 
   return (
     <AnimatePresence>
@@ -160,10 +162,12 @@ function DragonVsTigerConfrontation() {
   );
 }
 
-/* "PLACE YOUR BETS" flash – shown for the first ~1.4s of the betting phase */
+/* "PLACE YOUR BETS" flash – shown for the 2 sec place bet pop up */
 function BetsOpenFlash() {
   const { state } = useGame();
-  const show = state.phase === PHASES.BETTING && state.timer >= 14;
+  const show =
+    state.phase === PHASES.PLACE_BETS ||
+    (state.phase === PHASES.BETTING && state.timer >= 14);
   return (
     <AnimatePresence>
       {show && (

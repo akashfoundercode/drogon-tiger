@@ -59,6 +59,109 @@ export function reducer(state, action) {
       return { ...state, timer: t };
     }
 
+    case 'SET_HISTORY':
+      return { ...state, history: action.history };
+
+    case 'SET_BALANCE':
+      return { ...state, balance: action.balance };
+
+    case 'SERVER_VERSUS':
+    case 'SERVER_IDLE': {
+      const stake = sum(state.bets);
+      return {
+        ...state,
+        phase: PHASES.VERSUS,
+        timer: action.time_remaining ?? 4,
+        roundNo: action.period || state.roundNo,
+        lastBets: stake > 0 ? state.bets : state.lastBets,
+        bets: zero(),
+        totals: zero(),
+        players: zero(),
+        piles: { dragon: [], tie: [], tiger: [] },
+        cards: { dragon: null, tiger: null },
+        reveal: { dragon: false, tiger: false },
+        result: null,
+      };
+    }
+
+    case 'SERVER_PLACE_BETS': {
+      return {
+        ...state,
+        phase: PHASES.PLACE_BETS,
+        timer: action.time_remaining ?? 2,
+        roundNo: action.period || state.roundNo,
+      };
+    }
+
+    case 'SERVER_CLOSED': {
+      return {
+        ...state,
+        phase: PHASES.CLOSED,
+        timer: 0,
+      };
+    }
+
+    case 'SERVER_BETTING': {
+      return {
+        ...state,
+        phase: PHASES.BETTING,
+        timer: action.time_remaining ?? 15,
+        roundNo: action.period || state.roundNo,
+      };
+    }
+
+    case 'SERVER_TICK': {
+      return { ...state, timer: action.time_remaining };
+    }
+
+    case 'SERVER_REVEALING': {
+      const winner =
+        action.winner === 'D'
+          ? 'dragon'
+          : action.winner === 'T'
+            ? 'tiger'
+            : 'tie';
+      return {
+        ...state,
+        phase: PHASES.REVEAL,
+        timer: action.time_remaining ?? 6,
+        roundNo: action.period || state.roundNo,
+        cards: action.cards,
+        serverOutcome: {
+          winner,
+          win_number: action.win_number,
+          multiplier: action.multiplier,
+        },
+        reveal: { dragon: false, tiger: false },
+      };
+    }
+
+    case 'SERVER_WINNER_POPUP': {
+      const winner =
+        action.winner === 'D'
+          ? 'dragon'
+          : action.winner === 'T'
+            ? 'tiger'
+            : action.winner === 'Tie'
+              ? 'tie'
+              : (state.serverOutcome?.winner || 'dragon');
+      const payoutFor = (bets) =>
+        winner === 'tie'
+          ? bets.tie * 5
+          : bets[winner] * 2;
+      const stake = sum(state.bets);
+      const payout = payoutFor(state.bets);
+      return {
+        ...state,
+        phase: PHASES.RESULT,
+        timer: action.time_remaining ?? 5,
+        cards: action.cards || state.cards,
+        balance: state.balance + payout,
+        history: [{ id: `r${state.roundNo}`, roundNo: state.roundNo, result: winner }, ...state.history].slice(0, 120),
+        result: { winner, stake, payout, net: payout - stake },
+      };
+    }
+
     case 'START_REVEAL':
       return {
         ...state,
@@ -72,11 +175,13 @@ export function reducer(state, action) {
 
     case 'RESOLVE': {
       const { dragon, tiger } = state.cards;
-      const winner = compareCards(dragon, tiger);
+      const winner = state.serverOutcome
+        ? state.serverOutcome.winner
+        : compareCards(dragon, tiger);
       const payoutFor = (bets) =>
         winner === 'tie'
-          ? bets.tie * PAYOUT_MULT.tie + (bets.dragon + bets.tiger) * TIE_REFUND_RATE
-          : bets[winner] * PAYOUT_MULT[winner];
+          ? bets.tie * 5
+          : bets[winner] * 2;
       const stake = sum(state.bets);
       const payout = payoutFor(state.bets);
       const bots = state.bots.map((b) => {

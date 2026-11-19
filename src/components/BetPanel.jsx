@@ -83,7 +83,7 @@ function Laurel({ flip }) {
 function BetPanel({ side }) {
   const { state, actions } = useGame();
   const th = THEMES[side];
-  const open = state.phase === PHASES.BETTING;
+  const open = state.phase === PHASES.BETTING || state.phase === PHASES.PLACE_BETS;
   const showResult = state.phase === PHASES.RESULT && state.result;
   const winner = showResult && state.result.winner === side;
   const loser = showResult && state.result.winner !== side;

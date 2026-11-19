@@ -183,9 +183,12 @@ export default function StatusBanner() {
   let sub = '';
   let icon = null;
   let tone = 'normal';
-  if (phase === PHASES.IDLE) {
+  if (phase === PHASES.VERSUS || phase === PHASES.IDLE) {
     text = 'GET READY';
     sub = `Round DT${roundNo} is about to begin`;
+  } else if (phase === PHASES.PLACE_BETS) {
+    text = 'PLACE YOUR BETS';
+    sub = `Round DT${roundNo}`;
   } else if (phase === PHASES.BETTING) {
     text = timer <= 3 ? 'LAST BETS!' : 'PLACE YOUR BETS';
     sub = `Round DT${roundNo}`;

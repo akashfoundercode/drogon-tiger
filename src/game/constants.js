@@ -2,22 +2,29 @@ export const CANVAS_W = 1870;
 export const CANVAS_H = 841;
 
 export const PHASES = {
-  IDLE: 'IDLE',
+  VERSUS: 'VERSUS',
+  PLACE_BETS: 'PLACE_BETS',
   BETTING: 'BETTING',
   CLOSED: 'CLOSED',
   REVEAL: 'REVEAL',
   RESULT: 'RESULT',
+  IDLE: 'VERSUS',
 };
 
-// Durations in ms (betting is in seconds)
+// Durations in seconds as specified:
+// 4s Versus -> 2s Place Bet -> 15s Place Bets Timer -> 6s Revealing -> 5s Winner Pop up
 export const TIMING = {
-  idle: 2800,
+  versus: 4,
+  placeBets: 2,
   betting: 15,
-  closed: 2400,
-  revealDragon: 900,
-  revealTiger: 2500,
-  resolve: 4000,
-  result: 5600,
+  revealing: 6,
+  winnerPopup: 5,
+  revealDragon: 1600,
+  revealTiger: 3600,
+  resolve: 5500,
+  idle: 4000,
+  closed: 2000,
+  result: 5000,
 };
 
 export const CHIP_VALUES = [10, 50, 100, 500, 1000];

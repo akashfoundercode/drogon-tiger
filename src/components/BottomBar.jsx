@@ -70,7 +70,7 @@ function CircleActionBtn({ children, onClick, disabled, label, size = 66, name }
 
 export default function BottomBar() {
   const { state, userId, actions, toast } = useGame();
-  const open = state.phase === PHASES.BETTING;
+  const open = state.phase === PHASES.BETTING || state.phase === PHASES.PLACE_BETS;
   const totalBet = state.bets.dragon + state.bets.tie + state.bets.tiger;
   const lastTotal = state.lastBets.dragon + state.lastBets.tie + state.lastBets.tiger;
   const wifiColor = state.ping < 60 ? '#4ade80' : state.ping < 85 ? '#facc15' : '#f87171';

@@ -35,24 +35,34 @@ function CardBack() {
 
 function CardFront({ card }) {
   if (!card) return null;
-  const color = card.suit.red ? '#d4141c' : '#15151f';
-  const rank = RANK_LABELS[card.rank - 1];
+  const suitName =
+    (typeof card.suit === 'object' ? card.suit.name || card.suit.key : card.suit) || 'spades';
+  const rank = card.rank || 1;
+  const suitOffsets = { spades: 1, diamonds: 2, clubs: 3, hearts: 4 };
+  const sOff = suitOffsets[String(suitName).toLowerCase()] || 1;
+  const k = rank === 1 ? 12 : rank - 2;
+  const cardNum = card.card_number || k * 4 + sOff;
+  const cardImgSrc = card.image || `/cards/${cardNum}.png`;
+
   return (
     <div
-      className="absolute inset-0 rounded-[9px] bg-gradient-to-br from-white to-[#ece6d8]"
-      style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', boxShadow: 'inset 0 0 0 1px #c9c2b0', color }}
+      className="absolute inset-0 rounded-[9px] overflow-hidden bg-white shadow-xl flex items-center justify-center select-none"
+      style={{
+        backfaceVisibility: 'hidden',
+        transform: 'rotateY(180deg)',
+        border: '1.5px solid #d4af37',
+        boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.5)',
+      }}
     >
-      <div className="absolute left-1.5 top-1 flex flex-col items-center leading-none font-body font-extrabold">
-        <span className="text-[22px]">{rank}</span>
-        <span className="text-[16px] -mt-0.5">{card.suit.sym}</span>
-      </div>
-      <div className="absolute right-1.5 bottom-1 flex flex-col items-center leading-none font-body font-extrabold rotate-180">
-        <span className="text-[22px]">{rank}</span>
-        <span className="text-[16px] -mt-0.5">{card.suit.sym}</span>
-      </div>
-      <div className="absolute inset-0 flex items-center justify-center text-[46px] pt-1" style={{ textShadow: '0 2px 4px rgba(0,0,0,.2)' }}>
-        {card.suit.sym}
-      </div>
+      <img
+        src={cardImgSrc}
+        alt={card.name || `Card ${cardNum}`}
+        className="w-full h-full object-fill pointer-events-none select-none rounded-[7px]"
+        onError={(e) => {
+          e.target.onerror = null;
+          e.target.src = `/cards/${cardNum}.png`;
+        }}
+      />
     </div>
   );
 }

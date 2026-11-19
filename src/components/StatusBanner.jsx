@@ -65,10 +65,10 @@ export default function StatusBanner() {
     text = 'GET READY';
     sub = `Round DT${roundNo} is about to begin`;
   } else if (phase === PHASES.BETTING) {
-    text = 'PLACE YOUR BETS';
+    text = timer <= 3 ? 'LAST BETS!' : 'PLACE YOUR BETS';
     sub = `Round DT${roundNo}`;
   } else if (phase === PHASES.CLOSED) {
-    text = 'BETS CLOSED';
+    text = 'BETS LOCKED';
     icon = <Lock size={22} color="#ffd84a" />;
     tone = 'closed';
   } else if (phase === PHASES.REVEAL) {

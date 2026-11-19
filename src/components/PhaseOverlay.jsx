@@ -1,9 +1,48 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins } from 'lucide-react';
+import { Coins, Lock, Sparkles } from 'lucide-react';
 import { useGame } from '../game/GameContext.jsx';
 import { PHASES } from '../game/constants.js';
 import { formatINR } from '../game/format.js';
+
+/* "GET READY" flash – shown during idle phase before betting opens */
+function GetReadyFlash() {
+  const { state } = useGame();
+  const show = state.phase === PHASES.IDLE;
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="ready"
+          className="absolute left-0 right-0 flex justify-center pointer-events-none"
+          style={{ top: 380, zIndex: 60 }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.4 }}
+          transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+        >
+          <div
+            className="relative px-14 py-3 rounded-full flex items-center gap-3"
+            style={{
+              background: 'linear-gradient(180deg, rgba(14,68,36,.96), rgba(5,28,15,.96))',
+              border: '4px solid #f5c542',
+              boxShadow: '0 0 60px rgba(34,197,94,.75), 0 10px 30px rgba(0,0,0,.75)',
+            }}
+          >
+            <Sparkles size={34} className="text-[#ffd84a] shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.8))' }} />
+            <span
+              className="font-display font-black text-[46px] tracking-wider text-gold-grad leading-none"
+              style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}
+            >
+              GET READY
+            </span>
+            <div className="sheen-bar" />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 /* "PLACE YOUR BETS" flash – shown for the first ~1.4s of the betting phase */
 function BetsOpenFlash() {
@@ -22,10 +61,17 @@ function BetsOpenFlash() {
           transition={{ type: 'spring', stiffness: 220, damping: 16 }}
         >
           <div
-            className="relative px-14 py-3 rounded-full"
-            style={{ background: 'linear-gradient(180deg,rgba(90,16,48,.95),rgba(30,6,28,.95))', border: '4px solid #f5c542', boxShadow: '0 0 60px rgba(255,190,60,.7), 0 10px 30px rgba(0,0,0,.7)' }}
+            className="relative px-14 py-3 rounded-full flex items-center gap-3"
+            style={{
+              background: 'linear-gradient(180deg, rgba(90,16,48,.96), rgba(30,6,28,.96))',
+              border: '4px solid #f5c542',
+              boxShadow: '0 0 60px rgba(255,190,60,.75), 0 10px 30px rgba(0,0,0,.75)',
+            }}
           >
-            <span className="font-display font-black text-[46px] tracking-wider text-gold-grad" style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}>
+            <span
+              className="font-display font-black text-[46px] tracking-wider text-gold-grad leading-none"
+              style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}
+            >
               PLACE YOUR BETS
             </span>
             <div className="sheen-bar" />
@@ -36,7 +82,48 @@ function BetsOpenFlash() {
   );
 }
 
-/* Premium lock slam when betting closes */
+/* "LAST BETS" warning flash – shown when timer is down to last 3 seconds */
+function LastBetsFlash() {
+  const { state } = useGame();
+  const show = state.phase === PHASES.BETTING && state.timer <= 3 && state.timer >= 1;
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="last-bets"
+          className="absolute left-0 right-0 flex justify-center pointer-events-none"
+          style={{ top: 380, zIndex: 60 }}
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: [1, 1.05, 1] }}
+          exit={{ opacity: 0, scale: 1.35 }}
+          transition={{
+            scale: { repeat: Infinity, duration: 0.65, ease: 'easeInOut' },
+            opacity: { duration: 0.2 },
+          }}
+        >
+          <div
+            className="relative px-14 py-3 rounded-full flex items-center gap-3"
+            style={{
+              background: 'linear-gradient(180deg, rgba(160,40,10,0.96), rgba(65,12,3,0.96))',
+              border: '4px solid #ff9d26',
+              boxShadow: '0 0 60px rgba(255,100,20,0.85), 0 10px 30px rgba(0,0,0,0.85)',
+            }}
+          >
+            <span
+              className="font-display font-black text-[46px] tracking-wider text-gold-grad leading-none"
+              style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}
+            >
+              LAST BETS!
+            </span>
+            <div className="sheen-bar" />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* Premium lock slam & luxury "BETS LOCKED" badge when betting closes */
 function BetsClosed() {
   const { state } = useGame();
   const show = state.phase === PHASES.CLOSED;
@@ -46,25 +133,25 @@ function BetsClosed() {
         <motion.div
           key="closed"
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          style={{ zIndex: 60, background: 'radial-gradient(circle at 50% 55%,rgba(120,0,0,.35),transparent 60%)' }}
+          style={{ zIndex: 60, background: 'radial-gradient(circle at 50% 48%, rgba(120,0,0,.35), transparent 65%)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="flex flex-col items-center" style={{ marginTop: 130 }}>
-            <div className="relative" style={{ width: 130, height: 150 }}>
-              {/* shockwave */}
+          <div className="flex flex-col items-center" style={{ marginTop: 60 }}>
+            {/* Padlock Drop & Slam Shockwave */}
+            <div className="relative" style={{ width: 120, height: 135 }}>
               <motion.span
-                className="absolute left-1/2 top-[88px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-                style={{ width: 120, height: 120, border: '4px solid #ffd84a' }}
+                className="absolute left-1/2 top-[76px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{ width: 130, height: 130, border: '4px solid #ffd84a' }}
                 initial={{ scale: 0.3, opacity: 0 }}
-                animate={{ scale: [0.3, 3.2], opacity: [0.9, 0] }}
-                transition={{ delay: 0.35, duration: 0.8, ease: 'easeOut' }}
+                animate={{ scale: [0.3, 3.4], opacity: [0.95, 0] }}
+                transition={{ delay: 0.28, duration: 0.8, ease: 'easeOut' }}
               />
-              <svg viewBox="0 0 130 150" width="130" height="150" className="relative" style={{ filter: 'drop-shadow(0 10px 14px rgba(0,0,0,.7)) drop-shadow(0 0 20px rgba(255,200,60,.5))' }}>
+              <svg viewBox="0 0 130 150" width="120" height="135" className="relative" style={{ filter: 'drop-shadow(0 10px 14px rgba(0,0,0,.8)) drop-shadow(0 0 24px rgba(255,200,60,.6))' }}>
                 <defs>
                   <linearGradient id="lockBody" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor="#fff3b0" />
+                    <stop offset="0%" stopColor="#fff3b0" />
                     <stop offset=".5" stopColor="#f5c542" />
                     <stop offset="1" stopColor="#8a5a0a" />
                   </linearGradient>
@@ -77,22 +164,78 @@ function BetsClosed() {
                   strokeLinecap="round"
                   initial={{ y: -26 }}
                   animate={{ y: [-26, -26, 0] }}
-                  transition={{ duration: 0.55, times: [0, 0.4, 1], ease: 'easeIn' }}
+                  transition={{ duration: 0.45, times: [0, 0.3, 1], ease: 'easeIn' }}
                 />
                 <rect x="14" y="68" width="102" height="72" rx="14" fill="url(#lockBody)" stroke="#6b4208" strokeWidth="4" />
                 <circle cx="65" cy="97" r="9" fill="#5c3b06" />
                 <rect x="61" y="100" width="8" height="20" rx="3" fill="#5c3b06" />
               </svg>
             </div>
+
+            {/* Premium Gold-bordered "BETS LOCKED" Pill matching "PLACE YOUR BETS" */}
             <motion.div
-              className="mt-2 font-display font-black text-[54px] tracking-widest"
-              style={{ color: '#ff4a4a', textShadow: '0 0 24px rgba(255,60,60,.9), 0 4px 6px rgba(0,0,0,.9)' }}
-              initial={{ scale: 2.2, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 14 }}
+              className="mt-4 relative px-14 py-3 rounded-full flex items-center gap-4"
+              style={{
+                background: 'linear-gradient(180deg, rgba(125,18,25,0.96), rgba(42,6,10,0.96))',
+                border: '4px solid #f5c542',
+                boxShadow: '0 0 60px rgba(255,60,60,0.85), 0 10px 30px rgba(0,0,0,0.85)',
+              }}
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: [0.4, 1.08, 1], opacity: 1 }}
+              transition={{ delay: 0.25, type: 'spring', stiffness: 280, damping: 16 }}
             >
-              BETS CLOSED
+              <Lock size={36} className="text-[#ffd84a] shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.8))' }} />
+              <span
+                className="font-display font-black text-[46px] tracking-wider text-gold-grad leading-none"
+                style={{ filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))' }}
+              >
+                BETS LOCKED
+              </span>
+              <div className="sheen-bar" />
             </motion.div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* "REVEALING CARDS" flash – shown when cards start dealing */
+function CardsDealingFlash() {
+  const { state } = useGame();
+  const show = state.phase === PHASES.REVEAL && !state.reveal.dragon && !state.reveal.tiger;
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="revealing"
+          className="absolute left-0 right-0 flex justify-center pointer-events-none"
+          style={{ top: 380, zIndex: 60 }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.4 }}
+          transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+        >
+          <div
+            className="relative px-14 py-3 rounded-full"
+            style={{
+              background: 'linear-gradient(180deg, rgba(15,40,110,0.96), rgba(6,16,50,0.96))',
+              border: '4px solid #38bdf8',
+              boxShadow: '0 0 60px rgba(56,189,248,0.75), 0 10px 30px rgba(0,0,0,0.85)',
+            }}
+          >
+            <span
+              className="font-display font-black text-[46px] tracking-wider leading-none"
+              style={{
+                background: 'linear-gradient(180deg, #ffffff 0%, #b3f0ff 45%, #38bdf8 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.8))',
+              }}
+            >
+              REVEALING CARDS
+            </span>
+            <div className="sheen-bar" />
           </div>
         </motion.div>
       )}
@@ -216,8 +359,11 @@ function Toast() {
 export default function PhaseOverlay() {
   return (
     <>
+      <GetReadyFlash />
       <BetsOpenFlash />
+      <LastBetsFlash />
       <BetsClosed />
+      <CardsDealingFlash />
       <Celebration />
       <MyResult />
       <Toast />

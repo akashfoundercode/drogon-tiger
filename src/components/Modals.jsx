@@ -413,6 +413,20 @@ export function LoginModal({ onClose }) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [savePassword, setSavePassword] = useState(false);
+
+  // Load saved credentials on mount if user previously selected "Save Password"
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dt_saved_creds');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.mobile) setMobile(parsed.mobile);
+        if (parsed.password) setPassword(parsed.password);
+        setSavePassword(true);
+      }
+    } catch (e) {}
+  }, []);
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -433,6 +447,17 @@ export function LoginModal({ onClose }) {
     });
     setLoading(false);
     if (res.ok) {
+      // Save or clear remembered password based on user checkbox
+      try {
+        if (savePassword) {
+          localStorage.setItem(
+            'dt_saved_creds',
+            JSON.stringify({ mobile: mobile.trim(), password: password.trim() })
+          );
+        } else {
+          localStorage.removeItem('dt_saved_creds');
+        }
+      } catch (err) {}
       onClose();
     } else {
       setErrorMsg(res.message || 'Login failed. Invalid credentials.');
@@ -442,11 +467,12 @@ export function LoginModal({ onClose }) {
   const handleDemoFill = () => {
     setMobile('9876543210');
     setPassword('dragon123');
+    setSavePassword(true);
     setErrorMsg('');
   };
 
   return (
-    <Modal title="Member Login" onClose={onClose} width={480}>
+    <Modal title="Member Login" onClose={onClose} width={450}>
       {user.isLoggedIn ? (
         <div className="flex flex-col items-center gap-4 text-center py-4">
           <div className="w-16 h-16 rounded-full flex items-center justify-center bg-yellow-400/20 border-2 border-yellow-400 text-yellow-300">
@@ -473,60 +499,81 @@ export function LoginModal({ onClose }) {
           </div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 font-body">
-          <p className="text-white/75 text-sm -mt-1 leading-snug">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 font-body">
+          <p className="text-white/75 text-xs sm:text-sm -mt-1 leading-snug">
             Login to save your wallet balance, bet history, and VIP privileges across sessions.
           </p>
 
           {errorMsg && (
-            <div className="px-4 py-2.5 rounded-xl bg-red-900/40 border border-red-500/50 text-red-200 text-xs font-semibold flex items-center gap-2">
+            <div className="px-3.5 py-2 rounded-xl bg-red-900/40 border border-red-500/50 text-red-200 text-xs font-semibold flex items-center gap-2">
               <span>⚠️</span>
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* Country code & Mobile number */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-white/80 uppercase tracking-wider">Mobile Number</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-bold text-white/80 uppercase tracking-wider">Mobile Number</label>
             <div className="flex items-center rounded-xl overflow-hidden border border-white/20 bg-black/40 focus-within:border-yellow-400 transition-colors">
-              <div className="flex items-center gap-1 px-3 py-3 bg-white/10 text-white font-bold text-sm shrink-0 border-r border-white/15">
+              <div className="flex items-center gap-1 px-3 py-2.5 bg-white/10 text-white font-bold text-xs sm:text-sm shrink-0 border-r border-white/15">
                 <span>🇮🇳</span>
                 <span>+{countryCode}</span>
               </div>
               <div className="relative flex-1 flex items-center">
-                <Phone size={18} className="absolute left-3 text-white/40" />
+                <Phone size={17} className="absolute left-3 text-white/40" />
                 <input
                   type="tel"
                   maxLength={10}
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
                   placeholder="Enter 10-digit mobile"
-                  className="w-full pl-10 pr-4 py-3 bg-transparent text-white font-semibold text-sm outline-none placeholder:text-white/30"
+                  className="w-full pl-9 pr-3 py-2.5 bg-transparent text-white font-semibold text-xs sm:text-sm outline-none placeholder:text-white/30"
                 />
               </div>
             </div>
           </div>
 
           {/* Password */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-white/80 uppercase tracking-wider">Password</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-bold text-white/80 uppercase tracking-wider">Password</label>
             <div className="relative flex items-center rounded-xl border border-white/20 bg-black/40 focus-within:border-yellow-400 transition-colors">
-              <Lock size={18} className="absolute left-3 text-white/40" />
+              <Lock size={17} className="absolute left-3 text-white/40" />
               <input
                 type={showPass ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter account password"
-                className="w-full pl-10 pr-11 py-3 bg-transparent text-white font-semibold text-sm outline-none placeholder:text-white/30"
+                className="w-full pl-9 pr-10 py-2.5 bg-transparent text-white font-semibold text-xs sm:text-sm outline-none placeholder:text-white/30"
               />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
                 className="absolute right-3 p-1 text-white/50 hover:text-white transition-colors"
               >
-                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
             </div>
+          </div>
+
+          {/* Save Password / Remember Me Checkbox */}
+          <div className="flex items-center justify-between pt-0.5">
+            <label
+              onClick={() => setSavePassword(!savePassword)}
+              className="flex items-center gap-2 cursor-pointer select-none text-white/80 hover:text-white transition-colors"
+            >
+              <div
+                className={`w-4 h-4 rounded-md flex items-center justify-center border transition-all ${
+                  savePassword
+                    ? 'bg-gradient-to-b from-[#fff1a8] to-[#e0a912] border-[#ffe27a] text-[#4a2d00]'
+                    : 'bg-black/50 border-white/30 text-transparent'
+                }`}
+              >
+                <Check size={12} className="stroke-[3]" />
+              </div>
+              <span className="font-semibold text-[11.5px] sm:text-xs tracking-wide">
+                Save Password (Remember Me)
+              </span>
+            </label>
           </div>
 
           {/* Submit button */}
@@ -535,17 +582,17 @@ export function LoginModal({ onClose }) {
             disabled={loading}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="mt-2 w-full py-3.5 rounded-xl font-display font-black text-[16px] tracking-wider text-[#4a2d00] flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+            className="mt-1 w-full py-3 rounded-xl font-display font-black text-[15px] sm:text-[16px] tracking-wider text-[#4a2d00] flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
             style={{
               background: 'linear-gradient(180deg,#fff1a8,#e0a912 60%,#b8801a)',
               boxShadow: '0 4px 18px rgba(224,169,18,0.45)',
             }}
           >
             {loading ? (
-              <RefreshCw size={20} className="animate-spin text-[#4a2d00]" />
+              <RefreshCw size={18} className="animate-spin text-[#4a2d00]" />
             ) : (
               <>
-                <LogIn size={20} />
+                <LogIn size={18} />
                 <span>SIGN IN NOW</span>
               </>
             )}

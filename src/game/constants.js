@@ -49,7 +49,7 @@ export const PAYOUT_MULT = { dragon: 2, tiger: 2, tie: 9 };
 // Share of a Dragon/Tiger stake returned when the round ends in a Tie
 export const TIE_REFUND_RATE = 0.5;
 
-export const START_BALANCE = 50000;
+export const START_BALANCE = 0;
 export const USER_ID = '1000121897';
 export const USER_NAME = 'Akash Rai';
 

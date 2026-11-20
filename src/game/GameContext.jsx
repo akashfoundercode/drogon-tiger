@@ -111,6 +111,26 @@ export function GameProvider({ children }) {
 
   const toast = useCallback((msg, kind = 'info') => dispatch({ type: 'TOAST', msg, kind }), []);
 
+  /* -------------------------- activity & session tracking ------------------------- */
+  const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes of zero interaction
+  const lastActiveRef = useRef(Date.now());
+
+  const recordActivity = useCallback(() => {
+    lastActiveRef.current = Date.now();
+    try {
+      localStorage.setItem('dt_last_active', String(Date.now()));
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    const events = ['pointerdown', 'keydown', 'touchstart', 'click'];
+    const handler = () => recordActivity();
+    events.forEach((ev) => window.addEventListener(ev, handler, { passive: true }));
+    return () => {
+      events.forEach((ev) => window.removeEventListener(ev, handler));
+    };
+  }, [recordActivity]);
+
   /* ------------------------------ flying chips ------------------------------ */
   const launchChip = useCallback((spec) => {
     setFlying((f) => [...f.slice(-70), { ...spec, id: ++flyId.current }]);
@@ -151,6 +171,13 @@ export function GameProvider({ children }) {
   /* --------------------------------- actions -------------------------------- */
   const placeBet = useCallback(
     (side, amountOverride) => {
+      if (!userRef.current.isLoggedIn) {
+        toast('Please login to place bets', 'error');
+        setModal('login');
+        sfx.error();
+        return false;
+      }
+      recordActivity();
       const s = stateRef.current;
       if (s.phase !== PHASES.BETTING && s.phase !== PHASES.PLACE_BETS) {
         toast('Betting is closed', 'error');
@@ -750,6 +777,10 @@ export function GameProvider({ children }) {
 
   const logout = useCallback(() => {
     setAuthToken(null);
+    try {
+      localStorage.removeItem('dt_user_profile');
+      localStorage.removeItem('dt_last_active');
+    } catch (e) {}
     const guestUser = {
       isLoggedIn: false,
       userId: USER_ID,
@@ -759,8 +790,58 @@ export function GameProvider({ children }) {
       vipLevel: 3,
     };
     saveUser(guestUser);
+    dispatch({ type: 'SET_BALANCE', balance: 0 });
     toast('Logged out successfully');
   }, [saveUser, toast]);
+
+  // Inactivity auto-logout and initial new device login prompt
+  useEffect(() => {
+    // 1. If not logged in on initial device launch, open login modal after brief mount delay
+    if (!userRef.current.isLoggedIn) {
+      const t = setTimeout(() => {
+        setModal('login');
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  useEffect(() => {
+    // 2. Check session expiry when returning to tab / window focus
+    const checkExpiry = () => {
+      if (document.hidden) return;
+      try {
+        const storedLastActive = Number(localStorage.getItem('dt_last_active')) || lastActiveRef.current;
+        const elapsed = Date.now() - storedLastActive;
+        if (elapsed > INACTIVITY_TIMEOUT && userRef.current.isLoggedIn) {
+          logout();
+          setModal('login');
+          toast('Session expired due to inactivity. Please login again.', 'info');
+        } else {
+          recordActivity();
+        }
+      } catch (e) {}
+    };
+
+    document.addEventListener('visibilitychange', checkExpiry);
+    window.addEventListener('focus', checkExpiry);
+
+    // 3. Background periodic inactivity timer (every 20s)
+    const interval = setInterval(() => {
+      if (!userRef.current.isLoggedIn) return;
+      const elapsed = Date.now() - lastActiveRef.current;
+      if (elapsed > INACTIVITY_TIMEOUT) {
+        logout();
+        setModal('login');
+        toast('Logged out due to inactivity', 'info');
+      }
+    }, 20000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', checkExpiry);
+      window.removeEventListener('focus', checkExpiry);
+      clearInterval(interval);
+    };
+  }, [logout, toast, recordActivity]);
 
   const refreshBalance = useCallback(async () => {
     try {

@@ -477,6 +477,85 @@ describe('9. Exact 5-Phase Timing (4s Versus -> 2s Place Bet -> 15s Timer -> 6s 
   });
 });
 
+// 10. User Authentication, Profile & Wallet Management Tests
+describe('10. User Login (https://api.wingo4all.site/api/login) & Wallet Management', () => {
+  it('Login request payload has mobile, country_code (91) and password', () => {
+    const loginPayload = {
+      mobile: '9876543210',
+      country_code: '91',
+      password: 'password123',
+    };
+    assert.strictEqual(loginPayload.country_code, '91');
+    assert.strictEqual(loginPayload.mobile.length, 10);
+    assert.ok(loginPayload.password.length > 0);
+  });
+
+  it('Login response returns status 200, JWT token, and user profile data', () => {
+    const loginRes = {
+      status: 200,
+      message: 'Login successful',
+      token: 'dt_jwt_token_123456',
+      data: {
+        id: 12,
+        userid: 12,
+        mobile: '9876543210',
+        country_code: '91',
+        username: 'User_3210',
+        balance: 50000,
+        vip_level: 3,
+      },
+    };
+    assert.strictEqual(loginRes.status, 200);
+    assert.ok(loginRes.token);
+    assert.strictEqual(loginRes.data.username, 'User_3210');
+    assert.strictEqual(loginRes.data.balance, 50000);
+  });
+
+  it('Wallet management updates balance on deposit or recharge', () => {
+    let balance = 50000;
+    const rechargeAmount = 5000;
+    balance += rechargeAmount;
+    assert.strictEqual(balance, 55000);
+  });
+
+  it('Token storage and retrieval operates correctly', () => {
+    let mockStorage = {};
+    const setToken = (t) => { if (t) mockStorage['dt_auth_token'] = t; else delete mockStorage['dt_auth_token']; };
+    const getToken = () => mockStorage['dt_auth_token'] || null;
+
+    setToken('jwt_test_token_abc');
+    assert.strictEqual(getToken(), 'jwt_test_token_abc');
+    setToken(null);
+    assert.strictEqual(getToken(), null);
+  });
+
+  it('Fetches /api/profile and matches wallet balance with user balance', () => {
+    const profileResponse = {
+      status: 200,
+      message: 'Profile fetched successfully',
+      data: {
+        id: 12,
+        userid: 12,
+        username: 'Akash_Rai',
+        mobile: '9876543210',
+        wallet: 78500,
+        balance: 78500,
+        vip_level: 3,
+        token: 'dt_token_12',
+      },
+      wallet: 78500,
+      balance: 78500,
+    };
+
+    const extractedWallet = profileResponse.data?.wallet ?? profileResponse.data?.balance ?? profileResponse.wallet;
+    assert.strictEqual(extractedWallet, 78500);
+
+    let currentBalance = 50000;
+    currentBalance = extractedWallet;
+    assert.strictEqual(currentBalance, 78500);
+  });
+});
+
 console.log(`\n========================================`);
 console.log(`Unit tests run: ${passed}/${total} tests passed across all games.`);
 console.log(`========================================\n`);

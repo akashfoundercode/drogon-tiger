@@ -2,7 +2,75 @@ import { io } from 'socket.io-client';
 
 const API_BASE = ''; // Uses Vite proxy to server or relative path
 
+// Authentication Token Helpers
+export function getAuthToken() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('dt_auth_token') || null;
+    }
+  } catch (e) {}
+  return null;
+}
+
+export function setAuthToken(token) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (token) {
+        localStorage.setItem('dt_auth_token', token);
+      } else {
+        localStorage.removeItem('dt_auth_token');
+      }
+    }
+  } catch (e) {}
+}
+
 export const api = {
+  async login({ mobile, country_code = '91', password }) {
+    try {
+      const res = await fetch(`${API_BASE}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile, country_code, password }),
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('API login proxy error, trying direct:', e);
+      try {
+        const res2 = await fetch('https://api.wingo4all.site/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile, country_code, password }),
+        });
+        return await res2.json();
+      } catch (err2) {
+        console.warn('Direct login error:', err2);
+        return { status: 500, message: 'Network connection failed' };
+      }
+    }
+  },
+
+  async getProfile(tokenOverride) {
+    const token = tokenOverride || getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['token'] = token;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/profile`, { headers });
+      return await res.json();
+    } catch (e) {
+      console.warn('API getProfile proxy error, trying direct:', e);
+      try {
+        const res2 = await fetch('https://api.wingo4all.site/api/profile', { headers });
+        return await res2.json();
+      } catch (err2) {
+        console.warn('Direct getProfile error:', err2);
+        return null;
+      }
+    }
+  },
+
   async getResults() {
     try {
       const res = await fetch(`${API_BASE}/api/dragon/results`);

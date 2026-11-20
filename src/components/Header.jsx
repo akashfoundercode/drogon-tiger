@@ -1,11 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BarChart3, HelpCircle, Settings, Volume2, VolumeX, Crown, Maximize, Minimize } from 'lucide-react';
+import {
+  ArrowLeft,
+  BarChart3,
+  HelpCircle,
+  Settings,
+  Volume2,
+  VolumeX,
+  Crown,
+  Maximize,
+  Minimize,
+  Wallet,
+  User,
+  LogIn,
+} from 'lucide-react';
 import PlayingCard from './PlayingCard.jsx';
 import StatusBanner from './StatusBanner.jsx';
-import { StatsModal, HelpModal, SettingsModal } from './Modals.jsx';
+import {
+  StatsModal,
+  HelpModal,
+  SettingsModal,
+  LoginModal,
+  ProfileModal,
+  WalletModal,
+} from './Modals.jsx';
 import { useGame } from '../game/GameContext.jsx';
 import { PHASES } from '../game/constants.js';
+import { formatINR } from '../game/format.js';
 import { isFullscreen, toggleFullscreen } from '../utils/fullscreen.js';
 
 function RoundButton({ children, onClick, label }) {
@@ -32,7 +53,7 @@ function RoundButton({ children, onClick, label }) {
 
 
 export default function Header() {
-  const { state, actions, toast, modal, setModal } = useGame();
+  const { state, actions, toast, modal, setModal, user } = useGame();
   const [fs, setFs] = useState(isFullscreen());
 
   useEffect(() => {
@@ -55,7 +76,7 @@ export default function Header() {
 
   return (
     <>
-      {/* top-left: back + logo */}
+      {/* top-left: back + logo + wallet/profile quick pill */}
       <div className="absolute left-6 top-4 flex items-center gap-3" style={{ zIndex: 30 }}>
         <RoundButton label="Back" onClick={() => toast('Lobby is not part of this demo')}>
           <ArrowLeft size={26} color="#ffd84a" strokeWidth={3} />
@@ -69,10 +90,59 @@ export default function Header() {
             Tiger
           </span>
         </div>
+
+        {/* Profile & Wallet quick pill */}
+        <div className="flex items-center gap-2 ml-2">
+          {/* Wallet Balance Pill */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setModal('wallet')}
+            className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full border cursor-pointer select-none"
+            style={{
+              background: 'linear-gradient(180deg, rgba(40,10,20,0.95), rgba(15,2,8,0.98))',
+              borderColor: 'rgba(255,216,74,0.65)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.2)',
+            }}
+          >
+            <span className="text-[14px]">🪙</span>
+            <span className="font-display font-extrabold text-[15px] text-[#ffe27a] leading-none">
+              {formatINR(state.balance)}
+            </span>
+            <span className="w-5 h-5 rounded-full bg-yellow-400 text-[#4a2d00] flex items-center justify-center text-xs font-black shadow-sm">
+              +
+            </span>
+          </motion.button>
+
+          {/* User Profile / Login Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setModal(user.isLoggedIn ? 'profile' : 'login')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer select-none"
+            style={{
+              background: user.isLoggedIn
+                ? 'linear-gradient(180deg, rgba(20,50,30,0.92), rgba(5,20,10,0.96))'
+                : 'linear-gradient(180deg, rgba(80,20,30,0.92), rgba(30,5,10,0.96))',
+              borderColor: user.isLoggedIn ? 'rgba(74,222,128,0.6)' : 'rgba(255,216,74,0.6)',
+            }}
+          >
+            <User size={15} className={user.isLoggedIn ? 'text-green-400' : 'text-[#ffe27a]'} />
+            <span className="font-body font-bold text-xs text-white max-w-[95px] truncate">
+              {user.isLoggedIn ? user.userName : 'LOGIN'}
+            </span>
+          </motion.button>
+        </div>
       </div>
 
       {/* top-right: controls */}
       <div className="absolute right-6 top-4 flex items-center gap-2.5" style={{ zIndex: 30 }}>
+        <RoundButton label="Wallet" onClick={() => setModal('wallet')}>
+          <Wallet size={23} color="#ffd84a" />
+        </RoundButton>
+        <RoundButton label="Profile" onClick={() => setModal(user.isLoggedIn ? 'profile' : 'login')}>
+          <User size={23} color={user.isLoggedIn ? '#4ade80' : '#ffd84a'} />
+        </RoundButton>
         <RoundButton label={fs ? 'Exit Fullscreen' : 'Fullscreen'} onClick={() => toggleFullscreen()}>
           {fs ? <Minimize size={24} color="#ffd84a" /> : <Maximize size={24} color="#ffd84a" />}
         </RoundButton>
@@ -156,6 +226,9 @@ export default function Header() {
       <StatusBanner />
 
       <AnimatePresence>
+        {modal === 'login' && <LoginModal key="login" onClose={() => setModal(null)} />}
+        {modal === 'profile' && <ProfileModal key="profile" onClose={() => setModal(null)} />}
+        {modal === 'wallet' && <WalletModal key="wallet" onClose={() => setModal(null)} />}
         {modal === 'stats' && <StatsModal key="stats" onClose={() => setModal(null)} />}
         {modal === 'help' && <HelpModal key="help" onClose={() => setModal(null)} />}
         {modal === 'settings' && <SettingsModal key="settings" onClose={() => setModal(null)} />}

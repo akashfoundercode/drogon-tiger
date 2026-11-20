@@ -5,14 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    port: 5173,
+    port: 5174,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3001',
+        target: 'https://api.wingo4all.site/',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://127.0.0.1:3001',
+        target: 'https://api.wingo4all.site/',
         ws: true,
         changeOrigin: true,
       },

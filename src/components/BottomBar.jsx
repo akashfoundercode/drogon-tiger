@@ -69,7 +69,7 @@ function CircleActionBtn({ children, onClick, disabled, label, size = 66, name }
 }
 
 export default function BottomBar() {
-  const { state, userId, actions, toast } = useGame();
+  const { state, userId, actions, toast, user, setModal } = useGame();
   const open = state.phase === PHASES.BETTING || state.phase === PHASES.PLACE_BETS;
   const totalBet = state.bets.dragon + state.bets.tie + state.bets.tiger;
   const lastTotal = state.lastBets.dragon + state.lastBets.tie + state.lastBets.tiger;
@@ -87,8 +87,11 @@ export default function BottomBar() {
   return (
     <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: 145, zIndex: 40 }}>
       {/* 1. Bottom-Left user card (fits into left oval frame of bg.png) */}
-      <div
-        className="absolute flex items-center pointer-events-auto"
+      <motion.div
+        whileHover={{ scale: 0.83 }}
+        whileTap={{ scale: 0.78 }}
+        onClick={() => setModal(user.isLoggedIn ? 'profile' : 'login')}
+        className="absolute flex items-center pointer-events-auto cursor-pointer"
         style={{
           left: 210,
           top: -44,
@@ -103,14 +106,14 @@ export default function BottomBar() {
         </div>
         <div className="ml-3 flex-1 flex flex-col justify-center">
           <div className="flex items-center justify-between pr-3">
-            <span className="font-body font-extrabold text-[17px] text-white leading-tight tracking-tight">
-              {USER_NAME}
+            <span className="font-body font-extrabold text-[17px] text-white leading-tight tracking-tight truncate max-w-[170px]">
+              {user.userName || USER_NAME}
             </span>
             <span
-              className="rounded-md px-1.5 py-[1px] text-[10.5px] font-body font-black"
+              className="rounded-md px-1.5 py-[1px] text-[10.5px] font-body font-black shrink-0"
               style={{ background: 'linear-gradient(180deg,#fff1a8,#d9a21b)', color: '#4a2d00' }}
             >
-              VIP 3
+              VIP {user.vipLevel || 3}
             </span>
           </div>
           <motion.div
@@ -131,7 +134,7 @@ export default function BottomBar() {
             </span>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* 2. Center 5 Chips (aligned directly over the 5 rings in bg.png) */}
       {CHIP_VALUES.map((v, idx) => {

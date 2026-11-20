@@ -9,12 +9,12 @@ import React, {
   useState,
 } from 'react';
 import { reducer, createInitialState } from './reducer.js';
-import { CHIP_VALUES, PHASES, TIMING, USER_ID } from './constants.js';
+import { CHIP_VALUES, PHASES, TIMING, USER_ID, USER_NAME } from './constants.js';
 import { drawCard, drawPair } from './cards.js';
 import { getSlot } from './pile.js';
 import { pickBotBet } from './bots.js';
 import { sfx } from './sound.js';
-import { api, connectGameSockets, placeBetSocket } from './apiClient.js';
+import { api, connectGameSockets, placeBetSocket, getAuthToken, setAuthToken } from './apiClient.js';
 
 const GameContext = createContext(null);
 export const useGame = () => useContext(GameContext);
@@ -36,6 +36,48 @@ export function GameProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  // Stored user profile & authentication
+  const getStoredUser = () => {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('dt_user_profile') : null;
+      const cachedToken = getAuthToken();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (cachedToken && !parsed.token) parsed.token = cachedToken;
+        return parsed;
+      }
+      if (cachedToken) {
+        return {
+          isLoggedIn: true,
+          userId: USER_ID,
+          userName: USER_NAME,
+          mobile: '',
+          token: cachedToken,
+          vipLevel: 3,
+        };
+      }
+    } catch (e) {}
+    return {
+      isLoggedIn: false,
+      userId: USER_ID,
+      userName: USER_NAME,
+      mobile: '',
+      token: null,
+      vipLevel: 3,
+    };
+  };
+
+  const [user, setUser] = useState(getStoredUser);
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  const saveUser = useCallback((u) => {
+    setUser(u);
+    try {
+      localStorage.setItem('dt_user_profile', JSON.stringify(u));
+    } catch (e) {}
+  }, []);
 
   const [forceWinner, setForceWinner] = useState('tiger'); // default to 'tiger' for testing
   const forceWinnerRef = useRef(forceWinner);
@@ -108,7 +150,9 @@ export function GameProvider({ children }) {
       dispatch({ type: 'PLACE_BET', side, amount });
 
       // Sync bet with backend API / Socket (Event 6: dragon_tiger:place_bet)
-      placeBetSocket({ spot: side, amount, userid: USER_ID }).then((res) => {
+      const currentUid = userRef.current.userId;
+      const currentUname = userRef.current.userName;
+      placeBetSocket({ spot: side, amount, userid: currentUid, username: currentUname }).then((res) => {
         if (res && res.balance !== undefined) {
           dispatch({ type: 'SET_BALANCE', balance: res.balance });
         } else if (res && res.status >= 400) {
@@ -363,11 +407,9 @@ export function GameProvider({ children }) {
       // Event 4: dragon_tiger:round_settled
       onRoundSettled: (data) => {
         hasServer.current = true;
-        api.getBalance(USER_ID).then((res) => {
-          if (res && res.balance !== undefined) {
-            dispatch({ type: 'SET_BALANCE', balance: res.balance });
-          }
-        });
+        if (data && data.balance !== undefined) {
+          dispatch({ type: 'SET_BALANCE', balance: Number(data.balance) });
+        }
       },
       // Event 5: dragon_tiger:bet_pulse (Animate other players' bets)
       onBetPulse: (data) => {
@@ -516,7 +558,116 @@ export function GameProvider({ children }) {
     return () => clearInterval(iv);
   }, []);
 
+  // Sync profile & wallet from /api/profile on mount if token exists
+  useEffect(() => {
+    const token = getAuthToken() || userRef.current?.token;
+    if (token) {
+      api.getProfile(token).then((res) => {
+        if (res && (res.status === 200 || res.data || res.wallet !== undefined)) {
+          const data = res.data || res;
+          const bal = data.wallet ?? data.balance;
+          if (bal !== undefined && bal !== null) {
+            dispatch({ type: 'SET_BALANCE', balance: Number(bal) });
+          }
+          if (data.username || data.userid || data.id) {
+            setUser((prev) => ({
+              ...prev,
+              isLoggedIn: true,
+              userId: data.userid || data.id || prev.userId,
+              userName: data.username || prev.userName,
+              mobile: data.mobile || prev.mobile,
+              token,
+              vipLevel: data.vip_level ?? prev.vipLevel,
+            }));
+          }
+        }
+      }).catch((e) => console.warn('Initial profile sync error:', e));
+    }
+  }, []);
+
   const [modal, setModal] = useState(null);
+
+  const login = useCallback(async ({ mobile, country_code = '91', password }) => {
+    const res = await api.login({ mobile, country_code, password });
+    if (res && (res.status === 200 || res.token || res.data)) {
+      const data = res.data || {};
+      const token = res.token || data.token || `dt_token_${Date.now()}`;
+      setAuthToken(token);
+
+      // Match and sync wallet directly from /api/profile
+      let profileData = null;
+      try {
+        const profileRes = await api.getProfile(token);
+        if (profileRes && (profileRes.status === 200 || profileRes.data || profileRes.wallet !== undefined)) {
+          profileData = profileRes.data || profileRes;
+        }
+      } catch (e) {
+        console.warn('Profile fetch after login failed:', e);
+      }
+
+      const activeWallet = profileData?.wallet ?? profileData?.balance ?? data.wallet ?? data.balance;
+      const newUser = {
+        isLoggedIn: true,
+        userId: profileData?.userid || profileData?.id || data.userid || data.id || USER_ID,
+        userName: profileData?.username || data.username || `User_${String(mobile).slice(-4)}`,
+        mobile: profileData?.mobile || data.mobile || mobile,
+        token,
+        vipLevel: profileData?.vip_level ?? data.vip_level ?? 3,
+      };
+      saveUser(newUser);
+
+      if (activeWallet !== undefined && activeWallet !== null) {
+        dispatch({ type: 'SET_BALANCE', balance: Number(activeWallet) });
+      }
+
+      toast(`Welcome back, ${newUser.userName}!`, 'success');
+      return { ok: true, user: newUser, balance: activeWallet };
+    } else {
+      const msg = res?.message || 'Login failed. Please check mobile and password.';
+      toast(msg, 'error');
+      sfx.error();
+      return { ok: false, message: msg };
+    }
+  }, [saveUser, toast]);
+
+  const logout = useCallback(() => {
+    setAuthToken(null);
+    const guestUser = {
+      isLoggedIn: false,
+      userId: USER_ID,
+      userName: USER_NAME,
+      mobile: '',
+      token: null,
+      vipLevel: 3,
+    };
+    saveUser(guestUser);
+    toast('Logged out successfully');
+  }, [saveUser, toast]);
+
+  const refreshBalance = useCallback(async () => {
+    try {
+      const res = await api.getProfile();
+      if (res && (res.status === 200 || res.data || res.wallet !== undefined)) {
+        const data = res.data || res;
+        const bal = data.wallet ?? data.balance;
+        if (bal !== undefined && bal !== null) {
+          dispatch({ type: 'SET_BALANCE', balance: Number(bal) });
+          toast(`Wallet balance synced: ₹${Number(bal).toLocaleString('en-IN')}`, 'success');
+          return Number(bal);
+        }
+      }
+    } catch (e) {
+      console.warn('Refresh balance error:', e);
+    }
+    toast(`Wallet balance: ₹${stateRef.current.balance.toLocaleString('en-IN')}`, 'info');
+  }, [toast]);
+
+  const depositBalance = useCallback((amount) => {
+    const newBal = stateRef.current.balance + amount;
+    dispatch({ type: 'SET_BALANCE', balance: newBal });
+    toast(`Added ₹${amount.toLocaleString('en-IN')} to wallet!`, 'success');
+    sfx.chip();
+  }, [toast]);
 
   const handleSetForceWinner = useCallback((val) => {
     setForceWinner(val);
@@ -527,7 +678,9 @@ export function GameProvider({ children }) {
   const value = useMemo(
     () => ({
       state,
-      userId: USER_ID,
+      user,
+      userId: user.userId,
+      userName: user.userName,
       flying,
       removeFlying,
       landChip,
@@ -536,9 +689,13 @@ export function GameProvider({ children }) {
       setForceWinner: handleSetForceWinner,
       modal,
       setModal,
+      login,
+      logout,
+      refreshBalance,
+      depositBalance,
       actions: { placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance },
     }),
-    [state, flying, removeFlying, landChip, toast, forceWinner, handleSetForceWinner, modal, placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance]
+    [state, user, flying, removeFlying, landChip, toast, forceWinner, handleSetForceWinner, modal, setModal, login, logout, refreshBalance, depositBalance, placeBet, repeatBet, doubleBet, clearBets, selectChip, toggleSound, resetBalance]
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

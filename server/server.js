@@ -439,6 +439,21 @@ playerNamespace.on('connection', (socket) => {
 
 adminNamespace.on('connection', (socket) => {
   broadcastAdminStream(null);
+
+  // Admin socket event to force winner in real-time
+  socket.on('dragon_tiger:admin:set_control', (data, cb) => {
+    const { winner } = data || {};
+    if (['D', 'T', 'Tie', 'auto'].includes(winner)) {
+      adminForceWinner = winner;
+      const res = { status: 200, message: `Admin force winner set to ${winner}`, current_setting: adminForceWinner };
+      socket.emit('dragon_tiger:admin:control_success', res);
+      if (cb) cb(res);
+    } else {
+      const err = { status: 400, message: 'Invalid winner option. Use D, T, Tie, or auto' };
+      socket.emit('dragon_tiger:admin:control_error', err);
+      if (cb) cb(err);
+    }
+  });
 });
 
 // Root namespace connections
@@ -532,6 +547,59 @@ function handlePlaceBet({ spot, amount, dragon, tiger, tie, userid = 12, usernam
 // -------------------------------------------------------------
 // REST API Endpoints as Specified
 // -------------------------------------------------------------
+
+// 0. User Login API (https://api.wingo4all.site/api/login)
+app.post('/api/login', (req, res) => {
+  const { mobile, country_code = '91', password } = req.body || {};
+  if (!mobile || !password) {
+    return res.status(400).json({ status: 400, message: 'Mobile and password are required' });
+  }
+  const userid = 12;
+  const username = `User_${String(mobile).slice(-4)}`;
+  const balance = getUserBalance(userid);
+  const token = `dt_token_${Date.now()}_${userid}`;
+  return res.json({
+    status: 200,
+    message: 'Login successful',
+    token,
+    data: {
+      id: userid,
+      userid,
+      mobile,
+      country_code,
+      username,
+      wallet: balance,
+      balance,
+      vip_level: 3,
+    },
+  });
+});
+
+// 0.1 User Profile API (https://api.wingo4all.site/api/profile)
+app.get('/api/profile', (req, res) => {
+  const token =
+    req.headers.authorization?.replace(/^Bearer\s+/i, '') ||
+    req.headers.token ||
+    req.query.token;
+  const userid = 12;
+  const balance = getUserBalance(userid);
+  return res.json({
+    status: 200,
+    message: 'Profile fetched successfully',
+    data: {
+      id: userid,
+      userid,
+      username: 'Akash_Rai',
+      mobile: '9876543210',
+      wallet: balance,
+      balance,
+      vip_level: 3,
+      token: token || `dt_token_${userid}`,
+    },
+    wallet: balance,
+    balance,
+  });
+});
 
 // 1. Place Bet (supports /api/dragon/bet and /api/dragon_bet)
 const placeBetHandler = (req, res) => {

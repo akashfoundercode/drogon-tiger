@@ -1,6 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import {
+  X,
+  Eye,
+  EyeOff,
+  Lock,
+  Phone,
+  User,
+  Wallet,
+  LogIn,
+  LogOut,
+  RefreshCw,
+  Copy,
+  Check,
+  PlusCircle,
+  ShieldCheck,
+  Crown,
+} from 'lucide-react';
 import { useGame } from '../game/GameContext.jsx';
 import { sfx } from '../game/sound.js';
 import { PAYOUT_MULT, TIE_REFUND_RATE } from '../game/constants.js';
@@ -380,6 +396,409 @@ export function SettingsModal({ onClose }) {
           >
             Reset to ₹50,000
           </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ========================================================================= */
+/* 🔑 LOGIN MODAL (https://api.wingo4all.site/api/login)                     */
+/* ========================================================================= */
+export function LoginModal({ onClose }) {
+  const { user, login, setModal } = useGame();
+  const [mobile, setMobile] = useState('');
+  const [password, setPassword] = useState('');
+  const [countryCode, setCountryCode] = useState('91');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!mobile.trim()) {
+      setErrorMsg('Please enter your 10-digit mobile number');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Please enter your password');
+      return;
+    }
+    setErrorMsg('');
+    setLoading(true);
+    const res = await login({
+      mobile: mobile.trim(),
+      country_code: countryCode,
+      password: password.trim(),
+    });
+    setLoading(false);
+    if (res.ok) {
+      onClose();
+    } else {
+      setErrorMsg(res.message || 'Login failed. Invalid credentials.');
+    }
+  };
+
+  const handleDemoFill = () => {
+    setMobile('9876543210');
+    setPassword('dragon123');
+    setErrorMsg('');
+  };
+
+  return (
+    <Modal title="Member Login" onClose={onClose} width={480}>
+      {user.isLoggedIn ? (
+        <div className="flex flex-col items-center gap-4 text-center py-4">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center bg-yellow-400/20 border-2 border-yellow-400 text-yellow-300">
+            <User size={36} />
+          </div>
+          <div>
+            <h3 className="font-display font-black text-[22px] text-white">Already Logged In</h3>
+            <p className="text-white/70 font-body text-sm mt-1">Logged in as <b className="text-[#ffe27a]">{user.userName}</b> ({user.mobile || '9876543210'})</p>
+          </div>
+          <div className="flex items-center gap-3 mt-2 w-full">
+            <button
+              onClick={() => setModal('profile')}
+              className="flex-1 py-3 rounded-xl font-body font-black text-sm tracking-wider uppercase text-[#4a2d00]"
+              style={{ background: 'linear-gradient(180deg,#fff1a8,#d9a21b)' }}
+            >
+              Open Profile
+            </button>
+            <button
+              onClick={() => setModal('wallet')}
+              className="flex-1 py-3 rounded-xl font-body font-black text-sm tracking-wider uppercase text-white bg-white/10 hover:bg-white/15 border border-white/20"
+            >
+              Wallet
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 font-body">
+          <p className="text-white/75 text-sm -mt-1 leading-snug">
+            Login to save your wallet balance, bet history, and VIP privileges across sessions.
+          </p>
+
+          {errorMsg && (
+            <div className="px-4 py-2.5 rounded-xl bg-red-900/40 border border-red-500/50 text-red-200 text-xs font-semibold flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Country code & Mobile number */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-white/80 uppercase tracking-wider">Mobile Number</label>
+            <div className="flex items-center rounded-xl overflow-hidden border border-white/20 bg-black/40 focus-within:border-yellow-400 transition-colors">
+              <div className="flex items-center gap-1 px-3 py-3 bg-white/10 text-white font-bold text-sm shrink-0 border-r border-white/15">
+                <span>🇮🇳</span>
+                <span>+{countryCode}</span>
+              </div>
+              <div className="relative flex-1 flex items-center">
+                <Phone size={18} className="absolute left-3 text-white/40" />
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter 10-digit mobile"
+                  className="w-full pl-10 pr-4 py-3 bg-transparent text-white font-semibold text-sm outline-none placeholder:text-white/30"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-white/80 uppercase tracking-wider">Password</label>
+            <div className="relative flex items-center rounded-xl border border-white/20 bg-black/40 focus-within:border-yellow-400 transition-colors">
+              <Lock size={18} className="absolute left-3 text-white/40" />
+              <input
+                type={showPass ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter account password"
+                className="w-full pl-10 pr-11 py-3 bg-transparent text-white font-semibold text-sm outline-none placeholder:text-white/30"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-3 p-1 text-white/50 hover:text-white transition-colors"
+              >
+                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Submit button */}
+          <motion.button
+            type="submit"
+            disabled={loading}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="mt-2 w-full py-3.5 rounded-xl font-display font-black text-[16px] tracking-wider text-[#4a2d00] flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+            style={{
+              background: 'linear-gradient(180deg,#fff1a8,#e0a912 60%,#b8801a)',
+              boxShadow: '0 4px 18px rgba(224,169,18,0.45)',
+            }}
+          >
+            {loading ? (
+              <RefreshCw size={20} className="animate-spin text-[#4a2d00]" />
+            ) : (
+              <>
+                <LogIn size={20} />
+                <span>SIGN IN NOW</span>
+              </>
+            )}
+          </motion.button>
+
+          {/* Demo fill quick link */}
+          <div className="mt-1 flex items-center justify-between text-xs text-white/60">
+            <button
+              type="button"
+              onClick={handleDemoFill}
+              className="text-[#ffe27a] hover:underline font-semibold"
+            >
+              ⚡ Fill Demo Account
+            </button>
+            <span className="flex items-center gap-1">
+              <ShieldCheck size={14} className="text-green-400" /> 256-bit Encrypted
+            </span>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+/* ========================================================================= */
+/* 👤 PROFILE MODAL                                                          */
+/* ========================================================================= */
+export function ProfileModal({ onClose }) {
+  const { user, logout, state, setModal } = useGame();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyId = () => {
+    try {
+      navigator.clipboard?.writeText(String(user.userId));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (e) {}
+  };
+
+  return (
+    <Modal title="Player Profile" onClose={onClose} width={480}>
+      <div className="flex flex-col gap-5 font-body text-white">
+        {/* User Card */}
+        <div
+          className="relative rounded-2xl p-4 flex items-center gap-4 overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(60,20,30,0.8), rgba(20,5,15,0.95))',
+            border: '1.5px solid rgba(255,215,74,0.3)',
+          }}
+        >
+          <div className="relative">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center text-3xl font-black relative"
+              style={{
+                background: 'radial-gradient(circle at 35% 25%, #ffcc00, #b8801a)',
+                boxShadow: '0 0 20px rgba(255,200,40,0.5)',
+              }}
+            >
+              👑
+            </div>
+            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-500 text-black">
+              VIP {user.vipLevel || 3}
+            </span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-display font-black text-xl text-white truncate">{user.userName}</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-500/20 text-green-300 border border-green-500/30">
+                ACTIVE
+              </span>
+            </div>
+            <p className="text-xs text-white/60 mt-0.5">{user.mobile ? `+91 ${user.mobile}` : 'Verified Player'}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-xs text-white/75 font-mono">ID: {user.userId}</span>
+              <button
+                onClick={handleCopyId}
+                className="p-1 rounded hover:bg-white/10 text-[#ffe27a] transition-colors"
+                title="Copy User ID"
+              >
+                {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Wallet Balance Card */}
+        <div
+          className="rounded-2xl p-4 flex items-center justify-between"
+          style={{
+            background: 'linear-gradient(180deg, rgba(35,15,25,0.7), rgba(15,5,10,0.8))',
+            border: '1px solid rgba(255,215,74,0.2)',
+          }}
+        >
+          <div>
+            <span className="text-xs uppercase font-bold text-white/60 tracking-wider">Wallet Balance</span>
+            <div className="text-2xl font-black text-gold-grad mt-0.5">{formatINR(state.balance)}</div>
+          </div>
+          <button
+            onClick={() => {
+              onClose();
+              setModal('wallet');
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs tracking-wider text-[#4a2d00]"
+            style={{ background: 'linear-gradient(180deg,#fff1a8,#d9a21b)' }}
+          >
+            <Wallet size={16} />
+            <span>MANAGE</span>
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2 pt-1">
+          {user.isLoggedIn ? (
+            <button
+              onClick={() => {
+                logout();
+                onClose();
+              }}
+              className="w-full py-3 rounded-xl font-bold text-sm tracking-wider text-red-300 bg-red-950/40 hover:bg-red-900/50 border border-red-500/30 flex items-center justify-center gap-2 transition-colors"
+            >
+              <LogOut size={16} />
+              <span>LOGOUT OF THIS DEVICE</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                onClose();
+                setModal('login');
+              }}
+              className="w-full py-3 rounded-xl font-bold text-sm tracking-wider text-[#4a2d00] flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(180deg,#fff1a8,#d9a21b)' }}
+            >
+              <LogIn size={16} />
+              <span>LOGIN WITH MOBILE NUMBER</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ========================================================================= */
+/* 💳 WALLET MODAL                                                           */
+/* ========================================================================= */
+export function WalletModal({ onClose }) {
+  const { state, refreshBalance, depositBalance } = useGame();
+  const [customAmount, setCustomAmount] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const presets = [500, 1000, 2000, 5000, 10000, 50000];
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshBalance();
+    setTimeout(() => setRefreshing(false), 600);
+  };
+
+  const handleRecharge = (amount) => {
+    depositBalance(amount);
+  };
+
+  const handleCustomSubmit = (e) => {
+    e.preventDefault();
+    const val = Number(customAmount);
+    if (val > 0) {
+      handleRecharge(val);
+      setCustomAmount('');
+    }
+  };
+
+  return (
+    <Modal title="Wallet & Balance" onClose={onClose} width={500}>
+      <div className="flex flex-col gap-5 font-body text-white">
+        {/* Luxury Gold Balance Banner */}
+        <div
+          className="rounded-2xl p-5 flex items-center justify-between relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #4a1505 0%, #200508 60%, #100204 100%)',
+            border: '2px solid #ffd84a',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(255,200,40,0.2)',
+          }}
+        >
+          <div>
+            <span className="text-xs font-bold text-[#ffd84a] uppercase tracking-wider flex items-center gap-1.5">
+              <Wallet size={16} /> Total Available Balance
+            </span>
+            <div className="font-display font-black text-[32px] text-gold-grad leading-tight mt-1">
+              {formatINR(state.balance)}
+            </div>
+            <span className="text-[11px] text-white/60">Instant settlement on Dragon, Tiger & Tie wins</span>
+          </div>
+
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-[#ffe27a] transition-transform active:scale-90"
+            title="Refresh Live Balance"
+          >
+            <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {/* Quick Add Presets */}
+        <div>
+          <span className="text-xs font-bold text-white/80 uppercase tracking-wider">
+            Quick Add Chips (Demo Mode)
+          </span>
+          <div className="grid grid-cols-3 gap-2.5 mt-2">
+            {presets.map((amt) => (
+              <motion.button
+                key={amt}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => handleRecharge(amt)}
+                className="py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 font-bold text-sm border transition-colors"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(40,15,25,0.8), rgba(20,5,12,0.9))',
+                  borderColor: 'rgba(255,215,74,0.3)',
+                  color: '#ffe27a',
+                }}
+              >
+                <PlusCircle size={15} />
+                <span>+{formatINR(amt)}</span>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Custom Amount */}
+        <form onSubmit={handleCustomSubmit} className="flex gap-2 items-center">
+          <input
+            type="number"
+            min="10"
+            step="10"
+            value={customAmount}
+            onChange={(e) => setCustomAmount(e.target.value)}
+            placeholder="Custom amount (e.g. 2500)"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white font-semibold text-sm outline-none focus:border-yellow-400 placeholder:text-white/30"
+          />
+          <button
+            type="submit"
+            className="px-5 py-2.5 rounded-xl font-bold text-sm tracking-wider text-[#4a2d00]"
+            style={{ background: 'linear-gradient(180deg,#fff1a8,#d9a21b)' }}
+          >
+            ADD
+          </button>
+        </form>
+
+        <div className="text-center text-xs text-white/40 pt-1 flex items-center justify-center gap-1.5">
+          <ShieldCheck size={14} className="text-green-400" />
+          <span>Real-time wallet balance synced with server API & sockets</span>
         </div>
       </div>
     </Modal>

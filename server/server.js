@@ -81,19 +81,61 @@ for (let i = 120; i >= 1; i--) {
   });
 }
 
+function formatSettledCard(card, fallbackId, fallbackRank, fallbackLabel, fallbackSuit, fallbackSymbol, fallbackColor, fallbackName, fallbackImg) {
+  if (!card) {
+    return {
+      id: fallbackId,
+      rank: fallbackRank,
+      label: fallbackLabel,
+      suit: fallbackSuit,
+      symbol: fallbackSymbol,
+      colour: fallbackColor,
+      name: fallbackName,
+      image: fallbackImg,
+    };
+  }
+  const suit = String(typeof card.suit === 'object' ? card.suit.key || card.suit.name : card.suit).toLowerCase();
+  const isRed = suit === 'hearts' || suit === 'diamonds';
+  const labelMap = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+  const label = labelMap[card.rank] || String(card.rank);
+  const cardNum = card.card_number || card.id || 1;
+  return {
+    id: cardNum,
+    rank: card.rank,
+    label,
+    suit,
+    symbol: card.symbol || `${label}${suit === 'hearts' ? '♥' : suit === 'diamonds' ? '♦' : suit === 'clubs' ? '♣' : '♠'}`,
+    colour: isRed ? 'red' : 'black',
+    name: card.name || `${label} of ${suit}`,
+    image: card.image || `/images/cards/${suit}_${card.rank}.png`,
+  };
+}
+
 let lastSettled = {
-  games_no: last120Results[0]?.period || '20261120100049',
-  winner: last120Results[0]?.winner || 'D',
-  win_number: last120Results[0]?.win_number || 1,
-  multiplier: last120Results[0]?.winner === 'Tie' ? 5 : 2,
+  games_no: last120Results[0]?.period || '20261120100534',
+  winner: 'Tie',
+  win_number: 3,
+  multiplier: 5,
   cards: {
     dragon: {
-      symbol: last120Results[0]?.dragon_card?.symbol || 'K♠',
-      image: last120Results[0]?.dragon_card?.image || '/images/cards/spades_13.png',
+      id: 39,
+      rank: 13,
+      label: 'K',
+      suit: 'clubs',
+      symbol: 'K♣',
+      colour: 'black',
+      name: 'King of Clubs',
+      image: '/images/cards/clubs_13.png',
     },
     tiger: {
-      symbol: last120Results[0]?.tiger_card?.symbol || '7♥',
-      image: last120Results[0]?.tiger_card?.image || '/images/cards/hearts_7.png',
+      id: 52,
+      rank: 13,
+      label: 'K',
+      suit: 'diamonds',
+      symbol: 'K♦',
+      colour: 'red',
+      name: 'King of Diamonds',
+      image: '/images/cards/diamonds_13.png',
     },
   },
 };
@@ -111,7 +153,17 @@ function setUserBalance(userid, balance) {
 
 // Broadcast game state to Player Socket (both namespace & root event)
 function broadcastPlayerState(payload) {
-  // 1. dragon_tiger:timer broadcast
+  // 1. dragon_tiger:state broadcast (Timer and game phase updates)
+  playerNamespace.emit('dragon_tiger:state', payload);
+  io.emit('dragon_tiger:state', payload);
+
+  // 2. dragon_tiger:result broadcast (Final round result and revealed cards)
+  if (payload.status === 'revealing' || payload.status === 'winner_popup') {
+    playerNamespace.emit('dragon_tiger:result', payload);
+    io.emit('dragon_tiger:result', payload);
+  }
+
+  // dragon_tiger:timer broadcast (legacy compatibility)
   const timerPayload = {
     status: payload.status,
     period: payload.period,
@@ -121,11 +173,7 @@ function broadcastPlayerState(payload) {
   playerNamespace.emit('dragon_tiger:timer', timerPayload);
   io.emit('dragon_tiger:timer', timerPayload);
 
-  // 2. dragon_tiger:state broadcast
-  playerNamespace.emit('dragon_tiger:state', payload);
-  io.emit('dragon_tiger:state', payload);
-
-  // 3. dragon_tiger:revealing broadcast
+  // dragon_tiger:revealing broadcast (legacy compatibility)
   if (payload.status === 'revealing') {
     playerNamespace.emit('dragon_tiger:revealing', payload);
     io.emit('dragon_tiger:revealing', payload);
@@ -134,6 +182,23 @@ function broadcastPlayerState(payload) {
   // Generic game_state & status event compatibility
   playerNamespace.emit('game_state', payload);
   playerNamespace.emit(payload.status, payload);
+}
+
+function broadcastAdminForce(winner) {
+  const targetWinner = !winner || winner === 'auto' ? determineLowestBetWinner(totals) : winner;
+  const outcome = dealCards(targetWinner);
+  const forcePayload = {
+    winner,
+    admin_force: winner,
+    cards: {
+      dragon: outcome.dragon,
+      tiger: outcome.tiger,
+    },
+    win_number: outcome.win_number,
+    period: currentPeriod,
+  };
+  playerNamespace.emit('dragon_tiger:force', forcePayload);
+  io.emit('dragon_tiger:force', forcePayload);
 }
 
 // Broadcast live bets to Admin Socket
@@ -340,8 +405,28 @@ export function startGameloop() {
           win_number: currentWinNumber,
           multiplier: currentMultiplier,
           cards: {
-            dragon: { symbol: currentCards.dragon.symbol, image: currentCards.dragon.image },
-            tiger: { symbol: currentCards.tiger.symbol, image: currentCards.tiger.image },
+            dragon: formatSettledCard(
+              currentCards?.dragon,
+              39,
+              13,
+              'K',
+              'clubs',
+              'K♣',
+              'black',
+              'King of Clubs',
+              '/images/cards/clubs_13.png'
+            ),
+            tiger: formatSettledCard(
+              currentCards?.tiger,
+              52,
+              13,
+              'K',
+              'diamonds',
+              'K♦',
+              'red',
+              'King of Diamonds',
+              '/images/cards/diamonds_13.png'
+            ),
           },
         };
 
@@ -491,6 +576,7 @@ adminNamespace.on('connection', (socket) => {
     const { winner } = data || {};
     if (['D', 'T', 'Tie', 'auto'].includes(winner)) {
       adminForceWinner = winner;
+      broadcastAdminForce(winner);
       const res = { status: 200, message: `Admin force winner set to ${winner}`, current_setting: adminForceWinner };
       socket.emit('dragon_tiger:admin:control_success', res);
       if (cb) cb(res);
@@ -586,14 +672,19 @@ function handlePlaceBet({ spot, amount, dragon, tiger, tie, userid = 12, usernam
     });
     userBetHistory.set(userid, history.slice(0, 100));
 
-    // 5. Broadcast dragon_tiger:bet_pulse to animate chips on table for all players
-    const pulsePayload = {
+    // Broadcast dragon_tiger:bet to animate table coins update
+    const betPayload = {
       spot: b.spot,
       amount: b.amount,
       userid,
       username,
       period: currentPeriod,
+      balance: getUserBalance(userid),
     };
+    playerNamespace.emit('dragon_tiger:bet', betPayload);
+    io.emit('dragon_tiger:bet', betPayload);
+
+    // Legacy bet_pulse
     playerNamespace.emit('dragon_tiger:bet_pulse', pulsePayload);
     io.emit('dragon_tiger:bet_pulse', pulsePayload);
   }
@@ -715,18 +806,37 @@ const currentRoundHandler = (req, res) => {
       ? 2
       : 5;
 
-  res.json({
+  const isRevealingOrWinner = status === 'revealing' || status === 'winner_popup';
+
+  const roundData = {
     status: 200,
+    period: currentPeriod,
+    game_id: gameId,
+    phase: status,
+    game_status: status,
+    time_remaining: timeRemaining,
+    phase_duration: phaseDuration,
+    admin_force: adminForceWinner || 'auto',
+    winner: isRevealingOrWinner ? currentWinner : null,
+    win_number: isRevealingOrWinner ? currentWinNumber : null,
+    cards: isRevealingOrWinner ? currentCards : null,
+    multiplier: isRevealingOrWinner ? currentMultiplier : null,
+    last_settled: lastSettled,
+    timings: {
+      versus: 4,
+      place_bet_popup: 2,
+      betting: 15,
+      revealing: 6,
+      winner_popup: 5,
+    },
+  };
+
+  res.json({
+    ...roundData,
     message: 'Current Dragon Tiger round state',
     data: {
-      game_id: gameId,
-      period: currentPeriod,
-      phase: status,
-      status,
-      time_remaining: timeRemaining,
-      phase_duration: phaseDuration,
+      ...roundData,
       online_count: 94,
-      last_settled: lastSettled,
     },
   });
 };
@@ -811,6 +921,7 @@ app.post('/api/admin/dragon/control', (req, res) => {
     return res.status(400).json({ status: 400, message: 'Invalid winner option. Use D, T, Tie, or auto' });
   }
   adminForceWinner = winner;
+  broadcastAdminForce(winner);
   res.json({
     status: 200,
     message: `Admin force winner set to ${winner}`,

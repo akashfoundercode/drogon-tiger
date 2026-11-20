@@ -74,42 +74,32 @@ export const api = {
   async getResults(limit = 10, offset = 0) {
     const query = `limit=${limit}&offset=${offset}`;
     try {
-      const res = await fetch(`${API_BASE}/dragon_results?${query}`);
+      const res = await fetch(`${API_BASE}/api/dragon/results?${query}`);
       return await res.json();
     } catch (e) {
-      console.warn('API getResults error, trying aliases/direct:', e);
+      console.warn('API getResults error, trying direct:', e);
       try {
-        const res2 = await fetch(`${API_BASE}/api/dragon/results?${query}`);
+        const res2 = await fetch(`https://api.wingo4all.site/api/dragon/results?${query}`);
         return await res2.json();
       } catch (err2) {
-        try {
-          const res3 = await fetch(`https://api.wingo4all.site/dragon_results?${query}`);
-          return await res3.json();
-        } catch (err3) {
-          console.warn('Direct getResults error:', err3);
-          return null;
-        }
+        console.warn('Direct getResults error:', err2);
+        return null;
       }
     }
   },
 
   async getCurrentRound() {
     try {
-      const res = await fetch(`${API_BASE}/dragon/current-round`);
+      const res = await fetch(`${API_BASE}/api/dragon/current-round`);
       return await res.json();
     } catch (e) {
-      console.warn('API getCurrentRound error, trying aliases/direct:', e);
+      console.warn('API getCurrentRound error, trying direct:', e);
       try {
-        const res2 = await fetch(`${API_BASE}/api/dragon/current-round`);
+        const res2 = await fetch('https://api.wingo4all.site/api/dragon/current-round');
         return await res2.json();
       } catch (err2) {
-        try {
-          const res3 = await fetch('https://api.wingo4all.site/dragon/current-round');
-          return await res3.json();
-        } catch (err3) {
-          console.warn('Direct getCurrentRound error:', err3);
-          return null;
-        }
+        console.warn('Direct getCurrentRound error:', err2);
+        return null;
       }
     }
   },
@@ -127,33 +117,24 @@ export const api = {
       : { dragon, tiger, tie, userid, username };
 
     try {
-      const res = await fetch(`${API_BASE}/dragon/bet`, {
+      const res = await fetch(`${API_BASE}/api/dragon/bet`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
       });
       return await res.json();
     } catch (e) {
-      console.warn('API placeBet error, trying aliases/direct:', e);
+      console.warn('API placeBet error, trying direct:', e);
       try {
-        const res2 = await fetch(`${API_BASE}/api/dragon/bet`, {
+        const res2 = await fetch('https://api.wingo4all.site/api/dragon/bet', {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
         });
         return await res2.json();
       } catch (err2) {
-        try {
-          const res3 = await fetch('https://api.wingo4all.site/dragon/bet', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload),
-          });
-          return await res3.json();
-        } catch (err3) {
-          console.warn('Direct placeBet error:', err3);
-          return null;
-        }
+        console.warn('Direct placeBet error:', err2);
+        return null;
       }
     }
   },
@@ -236,22 +217,20 @@ export const PRIMARY_SOCKET_URL =
 
 export function connectGameSockets(callbacks = {}) {
   const {
-    onTimer,
+    onForce,
     onState,
+    onResult,
+    onBet,
+    // fallback legacy handlers
+    onTimer,
     onRevealing,
     onRoundSettled,
     onBetPulse,
     onBetSuccess,
     onBetError,
-    onGameUpdate,
-    onBetting,
-    onAdminStream,
   } = callbacks;
 
   try {
-    // 1. Socket 1: Player Game Flow Namespace (/dragon-tiger)
-    // Tries PRIMARY_SOCKET_URL (https://api.wingo4all.site/dragon-tiger)
-    // with automatic fallback to local /dragon-tiger proxy if remote is unreachable
     const socketOpts = {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
@@ -282,78 +261,59 @@ export function connectGameSockets(callbacks = {}) {
         console.log('Connected to Player Socket (/dragon-tiger)');
       });
 
-      // 1. dragon_tiger:timer (Server -> Client)
-      sock.on('dragon_tiger:timer', (data) => {
-        if (onTimer) onTimer(data);
-        if (onBetting && data?.status === 'betting') onBetting(data);
+      // 1. dragon_tiger:force (Admin force cards & winner)
+      sock.on('dragon_tiger:force', (data) => {
+        if (onForce) onForce(data);
       });
 
-      // 2. dragon_tiger:state (Server -> Client)
+      // 2. dragon_tiger:state (Timer and game phase updates)
       sock.on('dragon_tiger:state', (data) => {
         if (onState) onState(data);
-        if (onGameUpdate) onGameUpdate(data);
+        if (onTimer) onTimer(data);
       });
 
-      // 3. dragon_tiger:revealing (Server -> Client)
-      sock.on('dragon_tiger:revealing', (data) => {
+      // 3. dragon_tiger:result (Final round result and revealed cards)
+      sock.on('dragon_tiger:result', (data) => {
+        if (onResult) onResult(data);
         if (onRevealing) onRevealing(data);
-      });
-
-      // 4. dragon_tiger:round_settled (Server -> Client)
-      sock.on('dragon_tiger:round_settled', (data) => {
         if (onRoundSettled) onRoundSettled(data);
       });
 
-      // 5. dragon_tiger:bet_pulse (Server -> Client)
-      sock.on('dragon_tiger:bet_pulse', (data) => {
+      // 4. dragon_tiger:bet (Table live betting coins update)
+      sock.on('dragon_tiger:bet', (data) => {
+        if (onBet) onBet(data);
         if (onBetPulse) onBetPulse(data);
       });
 
-      // 7. dragon_tiger:bet_success (Server -> Client)
+      // Legacy event support
+      sock.on('dragon_tiger:timer', (data) => {
+        if (onState) onState(data);
+        if (onTimer) onTimer(data);
+      });
+      sock.on('dragon_tiger:revealing', (data) => {
+        if (onResult) onResult(data);
+        if (onRevealing) onRevealing(data);
+      });
+      sock.on('dragon_tiger:round_settled', (data) => {
+        if (onResult) onResult(data);
+        if (onRoundSettled) onRoundSettled(data);
+      });
+      sock.on('dragon_tiger:bet_pulse', (data) => {
+        if (onBet) onBet(data);
+        if (onBetPulse) onBetPulse(data);
+      });
       sock.on('dragon_tiger:bet_success', (data) => {
         if (onBetSuccess) onBetSuccess(data);
       });
-
-      // 8. dragon_tiger:bet_error (Server -> Client)
       sock.on('dragon_tiger:bet_error', (data) => {
         if (onBetError) onBetError(data);
-      });
-
-      // Backward compatibility with legacy events
-      sock.on('game_state', (data) => {
-        if (onGameUpdate) onGameUpdate(data);
-      });
-      sock.on('betting', (data) => {
-        if (onBetting) onBetting(data);
-      });
-      sock.on('revealing', (data) => {
-        if (onRevealing) onRevealing(data);
       });
     }
 
     attachPlayerEvents(playerSocket);
 
-    // 2. Socket 2: Admin Live Bets Stream Namespace (/dragon-tiger-admin)
-    adminSocket = io('/dragon-tiger-admin', {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-    });
-
-    adminSocket.on('connect', () => {
-      console.log('Connected to Admin Socket (/dragon-tiger-admin)');
-    });
-
-    adminSocket.on('dragon_tiger:admin:stream', (data) => {
-      if (onAdminStream) onAdminStream(data);
-    });
-
-    adminSocket.on('dragon_tiger:admin:bet_placed', (data) => {
-      if (onAdminStream) onAdminStream(data);
-    });
-
     return () => {
       if (playerSocket) playerSocket.disconnect();
-      if (adminSocket) adminSocket.disconnect();
     };
   } catch (err) {
     console.warn('Socket connection error:', err);

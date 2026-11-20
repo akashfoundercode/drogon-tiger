@@ -254,29 +254,93 @@ export function GameProvider({ children }) {
       }
     });
 
-    // 2. Fetch current round from REST API
-    api.getCurrentRound().then((res) => {
-      if (res && res.data) {
-        hasServer.current = true;
-        if (res.data.status === 'betting') {
-          dispatch({
-            type: 'SERVER_BETTING',
-            period: res.data.period,
-            time_remaining: res.data.time_remaining,
-          });
-        }
-      }
-    });
+    // 2. Fetch current round from REST API & synchronize admin_force and round state
+    const syncFromRound = (res) => {
+      if (!res) return;
+      hasServer.current = true;
+      const data = res.data || res;
 
-    // 3. Connect to Socket 1 (/dragon-tiger) & Socket 2 (/dragon-tiger-admin)
+      // Synchronize admin_force winner from response ("D", "T", "Tie", or "auto")
+      const adminForce = res.admin_force ?? data.admin_force;
+      if (adminForce) {
+        const fw =
+          adminForce === 'D'
+            ? 'dragon'
+            : adminForce === 'T'
+            ? 'tiger'
+            : adminForce === 'Tie'
+            ? 'tie'
+            : adminForce;
+        setForceWinner(fw);
+        forceWinnerRef.current = fw;
+      }
+
+      const pStatus = res.phase || res.game_status || res.status || data.phase || data.status;
+      const period = res.period || data.period;
+      const tRem = res.time_remaining ?? data.time_remaining;
+
+      if (pStatus === 'betting') {
+        dispatch({
+          type: 'SERVER_BETTING',
+          period,
+          time_remaining: tRem,
+        });
+      } else if (pStatus === 'versus' || pStatus === 'idle') {
+        dispatch({
+          type: 'SERVER_VERSUS',
+          period,
+          time_remaining: tRem,
+        });
+      } else if (pStatus === 'place_bets' || pStatus === 'place_bet_popup') {
+        dispatch({
+          type: 'SERVER_PLACE_BETS',
+          period,
+          time_remaining: tRem,
+        });
+      } else if (pStatus === 'revealing' && (res.cards || data.cards)) {
+        dispatch({
+          type: 'SERVER_REVEALING',
+          period,
+          time_remaining: tRem,
+          cards: res.cards || data.cards,
+          winner: res.winner || data.winner,
+          win_number: res.win_number || data.win_number,
+          multiplier: res.multiplier || data.multiplier,
+        });
+      }
+    };
+
+    api.getCurrentRound().then(syncFromRound);
+
+    // 3. Connect to Sockets using strictly the 4 core events
     const cleanup = connectGameSockets({
-      // Event 1: dragon_tiger:timer
-      onTimer: (data) => {
+      // Event 1: dragon_tiger:force (Admin ke force karte hi cards aur winner turant yahan milenge)
+      onForce: (data) => {
         hasServer.current = true;
         if (!data) return;
+        const forced = data.winner || data.admin_force;
+        if (forced) {
+          forceWinnerRef.current = forced;
+          setForceWinner(forced);
+        }
+        if (data.cards) {
+          dispatch({
+            type: 'UPDATE_CARDS',
+            cards: data.cards,
+            winner: forced,
+            win_number: data.win_number,
+          });
+        }
+      },
 
-        // 1. 4 sec Versus Pop up
-        if (data.status === 'versus' || data.status === 'idle') {
+      // Event 2: dragon_tiger:state (Timer aur game phase updates)
+      onState: (data) => {
+        hasServer.current = true;
+        if (!data) return;
+        const curPhase = data.phase || data.status;
+
+        // Phase 1: Versus
+        if (curPhase === 'versus' || curPhase === 'idle') {
           const s = stateRef.current;
           if (s.phase !== PHASES.VERSUS || String(s.roundNo) !== String(data.period)) {
             slotCounters.current = { dragon: 0, tie: 0, tiger: 0 };
@@ -285,14 +349,15 @@ export function GameProvider({ children }) {
               period: data.period,
               time_remaining: data.time_remaining,
             });
+            api.getCurrentRound().then(syncFromRound).catch(() => {});
           } else {
             dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
           return;
         }
 
-        // 2. 2 sec Place Bet Pop up
-        if (data.status === 'place_bets') {
+        // Phase 2: Place Bet Pop up
+        if (curPhase === 'place_bets' || curPhase === 'place_bet_popup') {
           const s = stateRef.current;
           if (s.phase !== PHASES.PLACE_BETS) {
             dispatch({
@@ -306,8 +371,8 @@ export function GameProvider({ children }) {
           return;
         }
 
-        // 3. 15 sec Place Bets Timer (Active Betting Window)
-        if (data.status === 'betting') {
+        // Phase 3: Active Betting Window
+        if (curPhase === 'betting') {
           const s = stateRef.current;
           if (s.phase !== PHASES.BETTING || String(s.roundNo) !== String(data.period)) {
             dispatch({
@@ -321,10 +386,20 @@ export function GameProvider({ children }) {
           return;
         }
 
-        // 4. 6 sec Revealing Cards Winner Decide
-        if (data.status === 'revealing') {
-          const s = stateRef.current;
-          if (s.phase !== PHASES.REVEAL) {
+        // Phase 4 & 5 tick updates
+        if (curPhase === 'revealing' || curPhase === 'winner_popup') {
+          dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
+        }
+      },
+
+      // Event 3: dragon_tiger:result (Final round result aur revealed cards)
+      onResult: (data) => {
+        hasServer.current = true;
+        if (!data) return;
+        const s = stateRef.current;
+
+        if (data.status === 'revealing' || (!data.status && data.cards)) {
+          if (s.phase !== PHASES.REVEAL && s.phase !== PHASES.RESULT) {
             dispatch({
               type: 'SERVER_REVEALING',
               period: data.period,
@@ -334,19 +409,10 @@ export function GameProvider({ children }) {
               win_number: data.win_number,
               multiplier: data.multiplier,
             });
-            // Card 1: Reveal Dragon Card at ~1.6s
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'dragon' }), 1600);
-            // Card 2: Reveal Tiger Card at ~3.6s
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'tiger' }), 3600);
-          } else {
-            dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
-          return;
-        }
-
-        // 5. 5 sec Winner Pop up
-        if (data.status === 'winner_popup' || data.status === 'result') {
-          const s = stateRef.current;
+        } else if (data.status === 'winner_popup' || data.status === 'result') {
           if (s.phase !== PHASES.RESULT) {
             dispatch({
               type: 'SERVER_WINNER_POPUP',
@@ -355,65 +421,21 @@ export function GameProvider({ children }) {
               cards: data.cards,
               winner: data.winner,
             });
-          } else {
-            dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
-          return;
         }
-      },
-      // Event 2: dragon_tiger:state
-      onState: (data) => {
-        hasServer.current = true;
-        if (!data) return;
-        if (data.status === 'versus' || data.status === 'idle') {
-          dispatch({
-            type: 'SERVER_VERSUS',
-            period: data.period,
-            time_remaining: data.time_remaining,
-          });
-        } else if (data.status === 'place_bets') {
-          dispatch({
-            type: 'SERVER_PLACE_BETS',
-            period: data.period,
-            time_remaining: data.time_remaining,
-          });
-        } else if (data.status === 'betting') {
-          dispatch({
-            type: 'SERVER_BETTING',
-            period: data.period,
-            time_remaining: data.time_remaining,
-          });
-        }
-      },
-      // Event 3: dragon_tiger:revealing
-      onRevealing: (data) => {
-        hasServer.current = true;
-        if (!data) return;
-        const s = stateRef.current;
-        if (s.phase !== PHASES.REVEAL && s.phase !== PHASES.RESULT) {
-          dispatch({
-            type: 'SERVER_REVEALING',
-            period: data.period,
-            time_remaining: data.time_remaining,
-            cards: data.cards,
-            winner: data.winner,
-            win_number: data.win_number,
-            multiplier: data.multiplier,
-          });
-          later(() => dispatch({ type: 'REVEAL_CARD', who: 'dragon' }), 1600);
-          later(() => dispatch({ type: 'REVEAL_CARD', who: 'tiger' }), 3600);
-        }
-      },
-      // Event 4: dragon_tiger:round_settled
-      onRoundSettled: (data) => {
-        hasServer.current = true;
-        if (data && data.balance !== undefined) {
+
+        if (data.balance !== undefined) {
           dispatch({ type: 'SET_BALANCE', balance: Number(data.balance) });
         }
       },
-      // Event 5: dragon_tiger:bet_pulse (Animate other players' bets)
-      onBetPulse: (data) => {
-        if (data && data.userid !== USER_ID) {
+
+      // Event 4: dragon_tiger:bet (Table par live betting coins update)
+      onBet: (data) => {
+        if (!data) return;
+        if (data.balance !== undefined) {
+          dispatch({ type: 'SET_BALANCE', balance: Number(data.balance) });
+        }
+        if (data.userid !== USER_ID) {
           const side = data.spot;
           if (['dragon', 'tiger', 'tie'].includes(side)) {
             const k = slotCounters.current[side]++;
@@ -428,20 +450,6 @@ export function GameProvider({ children }) {
             });
           }
         }
-      },
-      // Event 7: dragon_tiger:bet_success
-      onBetSuccess: (data) => {
-        if (data && data.balance !== undefined) {
-          dispatch({ type: 'SET_BALANCE', balance: data.balance });
-        }
-      },
-      // Event 8: dragon_tiger:bet_error
-      onBetError: (data) => {
-        toast(data?.message || 'Bet rejected', 'error');
-        sfx.error();
-      },
-      onGameUpdate: () => {
-        hasServer.current = true;
       },
     });
 

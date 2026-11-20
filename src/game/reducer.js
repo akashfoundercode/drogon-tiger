@@ -114,6 +114,14 @@ export function reducer(state, action) {
       return { ...state, timer: action.time_remaining };
     }
 
+    case 'UPDATE_CARDS': {
+      return {
+        ...state,
+        cards: action.cards || state.cards,
+        forcedWinner: action.winner || state.forcedWinner,
+      };
+    }
+
     case 'SERVER_REVEALING': {
       const winner =
         action.winner === 'D'

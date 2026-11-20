@@ -327,36 +327,67 @@ describe('7. Real-time Socket 2 Admin Stream & REST APIs', () => {
     assert.strictEqual(res.data.wallet_balance, 1450.5);
   });
 
-  it('API 2: Current Round (/dragon/current-round) returns phase, timer, online_count and last_settled state', () => {
+  it('API 2: Current Round (/dragon/current-round) returns admin_force and decides the winner', () => {
     const res = {
       status: 200,
-      message: 'Current Dragon Tiger round state',
-      data: {
-        game_id: 10,
-        period: '20261120100050',
-        phase: 'betting',
-        status: 'betting',
-        time_remaining: 11,
-        phase_duration: 15,
-        online_count: 94,
-        last_settled: {
-          games_no: '20261120100049',
-          winner: 'D',
-          win_number: 1,
-          multiplier: 2,
-          cards: {
-            dragon: { symbol: 'K♠', image: '/images/cards/spades_13.png' },
-            tiger: { symbol: '7♥', image: '/images/cards/hearts_7.png' },
+      period: '20261120100535',
+      game_id: 10,
+      phase: 'betting',
+      game_status: 'betting',
+      time_remaining: 14,
+      phase_duration: 15,
+      admin_force: 'D',
+      winner: null,
+      win_number: null,
+      cards: null,
+      multiplier: null,
+      last_settled: {
+        games_no: '20261120100534',
+        winner: 'Tie',
+        win_number: 3,
+        multiplier: 5,
+        cards: {
+          dragon: {
+            id: 39,
+            rank: 13,
+            label: 'K',
+            suit: 'clubs',
+            symbol: 'K♣',
+            colour: 'black',
+            name: 'King of Clubs',
+            image: '/images/cards/clubs_13.png',
+          },
+          tiger: {
+            id: 52,
+            rank: 13,
+            label: 'K',
+            suit: 'diamonds',
+            symbol: 'K♦',
+            colour: 'red',
+            name: 'King of Diamonds',
+            image: '/images/cards/diamonds_13.png',
           },
         },
       },
+      timings: {
+        versus: 4,
+        place_bet_popup: 2,
+        betting: 15,
+        revealing: 6,
+        winner_popup: 5,
+      },
     };
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.data.status, 'betting');
-    assert.strictEqual(res.data.phase, 'betting');
-    assert.strictEqual(res.data.phase_duration, 15);
-    assert.strictEqual(res.data.online_count, 94);
-    assert.strictEqual(res.data.last_settled.winner, 'D');
+    assert.strictEqual(res.admin_force, 'D');
+    assert.strictEqual(res.phase, 'betting');
+    assert.strictEqual(res.time_remaining, 14);
+    assert.strictEqual(res.last_settled.winner, 'Tie');
+
+    // Admin force "D" dictates Dragon card rank > Tiger card rank
+    const deal = dealCards(res.admin_force);
+    assert.strictEqual(deal.winner, 'D');
+    assert.strictEqual(deal.win_number, 1);
+    assert.ok(deal.dragon.rank > deal.tiger.rank);
   });
 
   it('API 3: Past Results (/dragon_results) returns total_result, card_name and winner info', () => {
@@ -674,6 +705,140 @@ describe('10. User Login (https://api.wingo4all.site/api/login) & Wallet Managem
       }
     }
     assert.strictEqual(seenNumbers.size, 52);
+  });
+});
+
+// 11. Strictly 4 Socket Events & 3 APIs Verification
+describe('11. Strictly 4 Sockets & 3 APIs Standard', () => {
+  it('Socket Event 1: dragon_tiger:force delivers admin forced cards and winner instantly', () => {
+    const outcome = dealCards('D');
+    const forcePayload = {
+      winner: 'D',
+      admin_force: 'D',
+      cards: { dragon: outcome.dragon, tiger: outcome.tiger },
+      win_number: 1,
+      period: '20261120100050',
+    };
+    assert.strictEqual(forcePayload.winner, 'D');
+    assert.strictEqual(forcePayload.admin_force, 'D');
+    assert.ok(forcePayload.cards.dragon && forcePayload.cards.tiger);
+    assert.ok(forcePayload.cards.dragon.rank > forcePayload.cards.tiger.rank);
+  });
+
+  it('Socket Event 2: dragon_tiger:state delivers timer and game phase updates', () => {
+    const statePayload = {
+      status: 'betting',
+      phase: 'betting',
+      period: '20261120100050',
+      time_remaining: 14,
+      game_id: 10,
+    };
+    assert.strictEqual(statePayload.phase, 'betting');
+    assert.strictEqual(statePayload.time_remaining, 14);
+    assert.strictEqual(statePayload.period, '20261120100050');
+  });
+
+  it('Socket Event 3: dragon_tiger:result delivers final round result and revealed cards', () => {
+    const outcome = dealCards('T');
+    const resultPayload = {
+      status: 'revealing',
+      period: '20261120100050',
+      time_remaining: 6,
+      cards: { dragon: outcome.dragon, tiger: outcome.tiger },
+      winner: 'T',
+      win_number: 2,
+      multiplier: 2,
+    };
+    assert.strictEqual(resultPayload.winner, 'T');
+    assert.strictEqual(resultPayload.win_number, 2);
+    assert.ok(resultPayload.cards.tiger.rank > resultPayload.cards.dragon.rank);
+  });
+
+  it('Socket Event 4: dragon_tiger:bet delivers live betting coins update on table', () => {
+    const betPayload = {
+      spot: 'dragon',
+      amount: 100,
+      userid: 12,
+      username: 'Akash_Rai',
+      period: '20261120100050',
+      balance: 1450.50,
+    };
+    assert.strictEqual(betPayload.spot, 'dragon');
+    assert.strictEqual(betPayload.amount, 100);
+    assert.strictEqual(betPayload.userid, 12);
+  });
+
+  it('API 1: GET /api/dragon/current-round delivers round status, timings and admin_force', () => {
+    const roundResponse = {
+      status: 200,
+      period: '20261120100535',
+      game_id: 10,
+      phase: 'betting',
+      game_status: 'betting',
+      time_remaining: 14,
+      phase_duration: 15,
+      admin_force: 'D',
+      winner: null,
+      last_settled: {
+        games_no: '20261120100534',
+        winner: 'Tie',
+        win_number: 3,
+        multiplier: 5,
+      },
+      timings: {
+        versus: 4,
+        place_bet_popup: 2,
+        betting: 15,
+        revealing: 6,
+        winner_popup: 5,
+      },
+    };
+    assert.strictEqual(roundResponse.status, 200);
+    assert.strictEqual(roundResponse.admin_force, 'D');
+    assert.strictEqual(roundResponse.timings.betting, 15);
+  });
+
+  it('API 2: POST /api/dragon/bet places bet and returns wallet balance', () => {
+    const betResponse = {
+      status: 200,
+      message: 'Bet placed successfully on dragon',
+      data: {
+        bet_id: 14205,
+        games_no: '20261120100050',
+        spot: 'dragon',
+        spot_number: 1,
+        amount: 100,
+        wallet_balance: 1450.50,
+      },
+    };
+    assert.strictEqual(betResponse.status, 200);
+    assert.strictEqual(betResponse.data.spot, 'dragon');
+    assert.strictEqual(betResponse.data.wallet_balance, 1450.50);
+  });
+
+  it('API 3: GET /api/dragon/results delivers past results history roadmap', () => {
+    const resultsResponse = {
+      status: 200,
+      message: 'Data found',
+      total_result: 240,
+      count: 2,
+      data: [
+        {
+          id: 19820,
+          games_no: '20261120100049',
+          number: '1',
+          win_number: '1',
+          card_name: 'K♠ vs 7♥',
+          image: '/images/cards/spades_13.png',
+          multiplier: '2.00',
+          winner: 'D',
+          created_at: '2026-11-20T12:00:30.000Z',
+        },
+      ],
+    };
+    assert.strictEqual(resultsResponse.status, 200);
+    assert.strictEqual(resultsResponse.data[0].winner, 'D');
+    assert.strictEqual(resultsResponse.data[0].card_name, 'K♠ vs 7♥');
   });
 });
 

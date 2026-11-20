@@ -12,6 +12,7 @@ import ResultHistory from './components/ResultHistory.jsx';
 import BetPanel from './components/BetPanel.jsx';
 import BottomBar from './components/BottomBar.jsx';
 import FlyingChips from './components/FlyingChips.jsx';
+import SettlementAnimation from './components/SettlementAnimation.jsx';
 import PhaseOverlay from './components/PhaseOverlay.jsx';
 import WinnerAnimation from './components/WinnerAnimation.jsx';
 
@@ -39,6 +40,7 @@ function Game() {
       <WinnerAnimation />
       <PhaseOverlay />
       <FlyingChips />
+      <SettlementAnimation />
     </>
   );
 }

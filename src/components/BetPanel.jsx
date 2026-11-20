@@ -46,23 +46,30 @@ const PileChip = memo(function PileChip({ chip }) {
   return (
     <motion.div
       className="absolute"
-      style={{ left: chip.x, top: chip.y, zIndex: Math.round(chip.y), width: CHIP_SIZE, height: CHIP_SIZE }}
-      initial={{ scale: 1.35, rotate: chip.rot }}
-      animate={{ scale: 1, rotate: chip.rot }}
-      exit={{ scale: 0, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 420, damping: 14 }}
+      style={{
+        left: chip.x,
+        top: chip.y,
+        zIndex: chip.zIndex ?? Math.round(chip.y),
+        width: CHIP_SIZE,
+        height: CHIP_SIZE,
+        filter: 'drop-shadow(0 3px 6px rgba(0,0,0,.75)) drop-shadow(0 1px 2px rgba(0,0,0,.6))',
+      }}
+      initial={{ scale: 1.25, y: -10, opacity: 0.85, rotate: chip.rot }}
+      animate={{ scale: 1, y: 0, opacity: 1, rotate: chip.rot }}
+      exit={{ scale: 0, opacity: 0, transition: { duration: 0.25 } }}
+      transition={{ type: 'spring', stiffness: 450, damping: 20 }}
     >
       <motion.span
         className="absolute rounded-full"
-        style={{ inset: -2, border: '2px solid rgba(255,255,255,.8)' }}
-        initial={{ scale: 0.7, opacity: 0.9 }}
-        animate={{ scale: 1.9, opacity: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        style={{ inset: -2, border: '2px solid rgba(255,255,255,.7)' }}
+        initial={{ scale: 0.7, opacity: 0.85 }}
+        animate={{ scale: 1.8, opacity: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
       />
       <Chip
         value={chip.value}
         size={CHIP_SIZE}
-        style={chip.mine ? { boxShadow: '0 0 0 2px #ffe27a, 0 0 8px rgba(255,226,122,0.85)' } : undefined}
+        style={chip.mine ? { boxShadow: '0 0 0 2px #ffe27a, 0 0 10px rgba(255,226,122,0.95)' } : undefined}
       />
     </motion.div>
   );

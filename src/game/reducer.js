@@ -76,6 +76,7 @@ export function reducer(state, action) {
     case 'SERVER_VERSUS':
     case 'SERVER_IDLE': {
       const stake = sum(state.bets);
+      const winner = normalizeWinner(action.winner, action.win_number);
       return {
         ...state,
         phase: PHASES.VERSUS,
@@ -86,19 +87,34 @@ export function reducer(state, action) {
         totals: zero(),
         players: zero(),
         piles: { dragon: [], tie: [], tiger: [] },
-        cards: { dragon: null, tiger: null },
+        cards: action.cards || state.cards || { dragon: null, tiger: null },
         reveal: { dragon: false, tiger: false },
         result: null,
-        serverOutcome: null,
+        serverOutcome: winner
+          ? {
+              winner,
+              win_number: action.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
+              multiplier: action.multiplier ?? (winner === 'tie' ? 5 : 2),
+            }
+          : state.serverOutcome,
       };
     }
 
     case 'SERVER_PLACE_BETS': {
+      const winner = normalizeWinner(action.winner, action.win_number);
       return {
         ...state,
         phase: PHASES.PLACE_BETS,
         timer: action.time_remaining ?? 2,
         roundNo: action.period || state.roundNo,
+        cards: action.cards || state.cards,
+        serverOutcome: winner
+          ? {
+              winner,
+              win_number: action.win_number ?? state.serverOutcome?.win_number,
+              multiplier: action.multiplier ?? state.serverOutcome?.multiplier,
+            }
+          : state.serverOutcome,
       };
     }
 
@@ -117,11 +133,12 @@ export function reducer(state, action) {
         phase: PHASES.BETTING,
         timer: action.time_remaining ?? 15,
         roundNo: action.period || state.roundNo,
+        cards: action.cards || state.cards,
         serverOutcome: winner
           ? {
               winner,
-              win_number: action.win_number,
-              multiplier: action.multiplier,
+              win_number: action.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
+              multiplier: action.multiplier ?? (winner === 'tie' ? 5 : 2),
             }
           : state.serverOutcome,
       };
@@ -132,10 +149,18 @@ export function reducer(state, action) {
     }
 
     case 'UPDATE_CARDS': {
+      const winner = normalizeWinner(action.winner, action.win_number);
       return {
         ...state,
         cards: action.cards || state.cards,
-        forcedWinner: action.winner || state.forcedWinner,
+        forcedWinner: winner || state.forcedWinner,
+        serverOutcome: winner
+          ? {
+              winner,
+              win_number: action.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
+              multiplier: action.multiplier ?? (winner === 'tie' ? 5 : 2),
+            }
+          : state.serverOutcome,
       };
     }
 
@@ -233,6 +258,13 @@ export function reducer(state, action) {
       };
     }
 
+    case 'CLEAR_PILES': {
+      return {
+        ...state,
+        piles: { dragon: [], tie: [], tiger: [] },
+      };
+    }
+
     case 'NEXT_ROUND': {
       const stake = sum(state.bets);
       return {
@@ -287,9 +319,13 @@ export function reducer(state, action) {
 
     case 'LAND_CHIP': {
       if (action.roundNo !== state.roundNo) return state;
-      const list = state.piles[action.side].filter((c) => c.idx !== action.chip.idx);
-      list.push(action.chip);
-      return { ...state, piles: { ...state.piles, [action.side]: list } };
+      return {
+        ...state,
+        piles: {
+          ...state.piles,
+          [action.side]: [...state.piles[action.side], action.chip],
+        },
+      };
     }
 
     case 'BOT_BET': {

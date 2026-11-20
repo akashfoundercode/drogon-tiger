@@ -151,16 +151,44 @@ function setUserBalance(userid, balance) {
   userBalances.set(userid, balance);
 }
 
+function setupRoundOutcome() {
+  let targetWinner = adminForceWinner;
+  if (!targetWinner || targetWinner === 'auto') {
+    targetWinner = determineLowestBetWinner(totals);
+  }
+  const outcome = dealCards(targetWinner);
+  currentWinner = outcome.winner;
+  currentWinNumber = outcome.win_number;
+  currentMultiplier = outcome.multiplier;
+  currentCards = {
+    dragon: outcome.dragon,
+    tiger: outcome.tiger,
+  };
+  return outcome;
+}
+
+// Initialize active round outcome
+setupRoundOutcome();
+
 // Broadcast game state to Player Socket (both namespace & root event)
 function broadcastPlayerState(payload) {
+  const fullPayload = {
+    ...payload,
+    winner: currentWinner,
+    win_number: currentWinNumber,
+    cards: currentCards,
+    multiplier: currentMultiplier,
+    admin_force: adminForceWinner || 'auto',
+  };
+
   // 1. dragon_tiger:state broadcast (Timer and game phase updates)
-  playerNamespace.emit('dragon_tiger:state', payload);
-  io.emit('dragon_tiger:state', payload);
+  playerNamespace.emit('dragon_tiger:state', fullPayload);
+  io.emit('dragon_tiger:state', fullPayload);
 
   // 2. dragon_tiger:result broadcast (Final round result and revealed cards)
   if (payload.status === 'revealing' || payload.status === 'winner_popup') {
-    playerNamespace.emit('dragon_tiger:result', payload);
-    io.emit('dragon_tiger:result', payload);
+    playerNamespace.emit('dragon_tiger:result', fullPayload);
+    io.emit('dragon_tiger:result', fullPayload);
   }
 
   // dragon_tiger:timer broadcast (legacy compatibility)
@@ -175,26 +203,31 @@ function broadcastPlayerState(payload) {
 
   // dragon_tiger:revealing broadcast (legacy compatibility)
   if (payload.status === 'revealing') {
-    playerNamespace.emit('dragon_tiger:revealing', payload);
-    io.emit('dragon_tiger:revealing', payload);
+    playerNamespace.emit('dragon_tiger:revealing', fullPayload);
+    io.emit('dragon_tiger:revealing', fullPayload);
   }
 
   // Generic game_state & status event compatibility
-  playerNamespace.emit('game_state', payload);
-  playerNamespace.emit(payload.status, payload);
+  playerNamespace.emit('game_state', fullPayload);
+  playerNamespace.emit(payload.status, fullPayload);
 }
 
 function broadcastAdminForce(winner) {
   const targetWinner = !winner || winner === 'auto' ? determineLowestBetWinner(totals) : winner;
   const outcome = dealCards(targetWinner);
+  currentWinner = outcome.winner;
+  currentWinNumber = outcome.win_number;
+  currentMultiplier = outcome.multiplier;
+  currentCards = {
+    dragon: outcome.dragon,
+    tiger: outcome.tiger,
+  };
   const forcePayload = {
     winner,
     admin_force: winner,
-    cards: {
-      dragon: outcome.dragon,
-      tiger: outcome.tiger,
-    },
+    cards: currentCards,
     win_number: outcome.win_number,
+    multiplier: outcome.multiplier,
     period: currentPeriod,
   };
   playerNamespace.emit('dragon_tiger:force', forcePayload);
@@ -499,10 +532,7 @@ export function startGameloop() {
         currentRoundBets = [];
         totals = { dragon: 0, tiger: 0, tie: 0, total: 0 };
         counts = { dragon: 0, tiger: 0, tie: 0, total: 0 };
-        currentCards = null;
-        currentWinner = null;
-        currentWinNumber = null;
-        currentMultiplier = null;
+        setupRoundOutcome();
 
         const nextRoundPayload = {
           status: 'versus',
@@ -817,10 +847,10 @@ const currentRoundHandler = (req, res) => {
     time_remaining: timeRemaining,
     phase_duration: phaseDuration,
     admin_force: adminForceWinner || 'auto',
-    winner: isRevealingOrWinner ? currentWinner : null,
-    win_number: isRevealingOrWinner ? currentWinNumber : null,
-    cards: isRevealingOrWinner ? currentCards : null,
-    multiplier: isRevealingOrWinner ? currentMultiplier : null,
+    winner: currentWinner,
+    win_number: currentWinNumber,
+    cards: currentCards,
+    multiplier: currentMultiplier,
     last_settled: lastSettled,
     timings: {
       versus: 4,

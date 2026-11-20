@@ -88,15 +88,23 @@ const weighted = (pairs) => {
   return pairs[0][0];
 };
 
-export function pickBotBet(bots) {
+export function pickBotBet(bots, weightsOverride) {
   const eligible = bots.filter((b) => b.balance >= 10000);
   if (!eligible.length) return null;
   const bot = eligible[Math.floor(Math.random() * eligible.length)];
-  const side = weighted([
-    ['dragon', 46],
-    ['tiger', 46],
-    ['tie', 8],
-  ]);
+  const side = weighted(
+    weightsOverride
+      ? [
+          ['dragon', weightsOverride.dragon || 46],
+          ['tiger', weightsOverride.tiger || 46],
+          ['tie', weightsOverride.tie || 8],
+        ]
+      : [
+          ['dragon', 46],
+          ['tiger', 46],
+          ['tie', 8],
+        ]
+  );
   const chip = weighted([
     [10, 22],
     [50, 28],

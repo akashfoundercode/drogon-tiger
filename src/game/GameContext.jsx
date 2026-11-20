@@ -132,7 +132,17 @@ export function GameProvider({ children }) {
       type: 'LAND_CHIP',
       side: spec.side,
       roundNo: spec.roundNo,
-      chip: { id: spec.id, value: spec.value, mine: spec.mine, idx: spec.slot.idx, x: spec.slot.x, y: spec.slot.y, rot: spec.slot.rot },
+      chip: {
+        id: spec.id,
+        value: spec.value,
+        mine: spec.mine,
+        idx: spec.slot.idx,
+        x: spec.slot.x,
+        y: spec.slot.y,
+        rot: spec.slot.rot,
+        zIndex: spec.slot.zIndex,
+        height: spec.slot.height,
+      },
     });
   }, []);
 
@@ -267,20 +277,20 @@ export function GameProvider({ children }) {
       hasServer.current = true;
       const data = res.data && typeof res.data === 'object' ? res.data : res;
 
-      // Synchronize admin_force winner from response ("D", "T", "Tie", or "auto")
-      const adminForce = res.admin_force ?? data.admin_force;
-      if (adminForce) {
-        const fw = normalizeWinner(adminForce) || adminForce;
-        setForceWinner(fw);
-        forceWinnerRef.current = fw;
+      // Synchronize cards and winner from response
+      const responseCards = res.cards || data.cards;
+      const responseWinner = res.winner ?? data.winner ?? res.admin_force ?? data.admin_force;
+      const responseWinNumber = res.win_number ?? data.win_number;
+      const winner = normalizeWinner(responseWinner, responseWinNumber);
+
+      if (responseWinner) {
+        setForceWinner(winner);
+        forceWinnerRef.current = winner;
       }
 
       const pStatus = res.phase || res.game_status || data.phase || data.game_status || res.status || data.status;
       const period = res.period || data.period;
       const tRem = res.time_remaining ?? data.time_remaining;
-      const responseWinner = res.winner ?? data.winner;
-      const responseWinNumber = res.win_number ?? data.win_number;
-      const winner = normalizeWinner(responseWinner) || normalizeWinner(responseWinNumber);
 
       if (pStatus === 'betting') {
         dispatch({
@@ -288,7 +298,8 @@ export function GameProvider({ children }) {
           period,
           time_remaining: tRem,
           winner,
-          win_number: res.win_number ?? data.win_number,
+          win_number: responseWinNumber,
+          cards: responseCards,
           multiplier: res.multiplier ?? data.multiplier,
         });
       } else if (pStatus === 'versus' || pStatus === 'idle') {
@@ -296,20 +307,26 @@ export function GameProvider({ children }) {
           type: 'SERVER_VERSUS',
           period,
           time_remaining: tRem,
+          winner,
+          win_number: responseWinNumber,
+          cards: responseCards,
         });
       } else if (pStatus === 'place_bets' || pStatus === 'place_bet_popup') {
         dispatch({
           type: 'SERVER_PLACE_BETS',
           period,
           time_remaining: tRem,
+          winner,
+          win_number: responseWinNumber,
+          cards: responseCards,
         });
-      } else if ((pStatus === 'revealing' || pStatus === 'winner_popup' || pStatus === 'result') && (res.cards || data.cards || responseWinner || responseWinNumber)) {
+      } else if ((pStatus === 'revealing' || pStatus === 'winner_popup' || pStatus === 'result') && (responseCards || responseWinner || responseWinNumber)) {
         const winnerAction = pStatus === 'winner_popup' || pStatus === 'result' ? 'SERVER_WINNER_POPUP' : 'SERVER_REVEALING';
         dispatch({
           type: winnerAction,
           period,
           time_remaining: tRem,
-          cards: res.cards || data.cards,
+          cards: responseCards,
           winner: responseWinner ?? responseWinNumber,
           win_number: responseWinNumber,
           multiplier: res.multiplier || data.multiplier,
@@ -364,6 +381,9 @@ export function GameProvider({ children }) {
               type: 'SERVER_VERSUS',
               period: data.period,
               time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: data.winner ?? data.win_number,
+              win_number: data.win_number,
             });
             api.getCurrentRound().then(syncFromRound).catch(() => {});
           } else {
@@ -380,6 +400,9 @@ export function GameProvider({ children }) {
               type: 'SERVER_PLACE_BETS',
               period: data.period,
               time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: data.winner ?? data.win_number,
+              win_number: data.win_number,
             });
           } else {
             dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
@@ -396,16 +419,18 @@ export function GameProvider({ children }) {
               type: 'SERVER_BETTING',
               period: data.period,
               time_remaining: data.time_remaining,
+              cards: data.cards,
               winner,
               win_number: data.win_number,
               multiplier: data.multiplier,
             });
           } else {
-            if (winner) {
+            if (winner || data.cards) {
               dispatch({
                 type: 'SERVER_BETTING',
                 period: data.period,
                 time_remaining: data.time_remaining,
+                cards: data.cards,
                 winner,
                 win_number: data.win_number,
                 multiplier: data.multiplier,
@@ -575,10 +600,21 @@ export function GameProvider({ children }) {
   /* ------------------------------- simulated players ------------------------------ */
   useEffect(() => {
     if (state.phase !== PHASES.BETTING) return undefined;
+
+    // Dynamic round bias: in some rounds Tie is dominant, in others Dragon or Tiger ("kabhi tie me zyada, kabhi dragon me")
+    const roundSeed = Math.abs(Number(stateRef.current.roundNo) || Date.now());
+    const mode = roundSeed % 5;
+    const weights =
+      mode === 2
+        ? { dragon: 25, tiger: 25, tie: 50 } // Tie dominant
+        : mode === 0 || mode === 3
+        ? { dragon: 50, tiger: 24, tie: 26 } // Dragon dominant
+        : { dragon: 24, tiger: 50, tie: 26 }; // Tiger dominant
+
     const iv = setInterval(() => {
       const s = stateRef.current;
       if (s.phase !== PHASES.BETTING || s.timer <= 1) return;
-      const pick = pickBotBet(stateRef.current.bots);
+      const pick = pickBotBet(stateRef.current.bots, weights);
       if (!pick) return;
       const { bot, side, chip, amount } = pick;
       dispatch({ type: 'BOT_BET', botId: bot.id, side, amount });
@@ -592,8 +628,8 @@ export function GameProvider({ children }) {
         slot,
         roundNo: stateRef.current.roundNo,
       });
-      later(() => dispatch({ type: 'BOT_IDLE', botId: bot.id }), 900);
-    }, 550);
+      later(() => dispatch({ type: 'BOT_IDLE', botId: bot.id }), 600);
+    }, 180);
     return () => clearInterval(iv);
   }, [state.phase, launchChip, later]);
 

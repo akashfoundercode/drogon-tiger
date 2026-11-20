@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, Wifi } from 'lucide-react';
 import Avatar from './Avatar.jsx';
 import Chip from './Chip.jsx';
@@ -75,6 +75,17 @@ export default function BottomBar() {
   const lastTotal = state.lastBets.dragon + state.lastBets.tie + state.lastBets.tiger;
   const wifiColor = state.ping < 60 ? '#4ade80' : state.ping < 85 ? '#facc15' : '#f87171';
 
+  const [winBurst, setWinBurst] = useState(null);
+  useEffect(() => {
+    const onWin = (e) => {
+      setWinBurst(e.detail);
+      const timer = setTimeout(() => setWinBurst(null), 2400);
+      return () => clearTimeout(timer);
+    };
+    window.addEventListener('dt_wallet_win', onWin);
+    return () => window.removeEventListener('dt_wallet_win', onWin);
+  }, []);
+
   const copy = () => {
     try {
       navigator.clipboard?.writeText(userId);
@@ -100,7 +111,37 @@ export default function BottomBar() {
           transform: 'scale(0.80)',
           transformOrigin: 'left center',
         }}
+        animate={
+          winBurst
+            ? {
+                scale: [0.80, 0.88, 0.80],
+                filter: [
+                  'drop-shadow(0 0 0px #ffe27a)',
+                  'drop-shadow(0 0 25px #ffd700)',
+                  'drop-shadow(0 0 0px #ffe27a)',
+                ],
+              }
+            : {}
+        }
+        transition={{ duration: 0.7, ease: 'easeOut' }}
       >
+        <AnimatePresence>
+          {winBurst && (
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.7 }}
+              animate={{ opacity: 1, y: -45, scale: 1.15 }}
+              exit={{ opacity: 0, y: -70, scale: 0.8 }}
+              transition={{ duration: 1.2, ease: 'easeOut' }}
+              className="absolute left-24 top-0 z-50 pointer-events-none font-display font-black text-[26px] text-[#ffd700]"
+              style={{
+                filter:
+                  'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 14px rgba(255,215,0,0.9))',
+              }}
+            >
+              +{formatINR(winBurst.payout)}
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div data-user-avatar className="shrink-0 ml-2">
           <Avatar a={userAvatar} size={76} />
         </div>

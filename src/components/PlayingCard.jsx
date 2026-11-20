@@ -37,12 +37,38 @@ function CardFront({ card }) {
   if (!card) return null;
   const suitName =
     (typeof card.suit === 'object' ? card.suit.name || card.suit.key : card.suit) || 'spades';
-  const rank = card.rank || 1;
+  const sLower = String(suitName).toLowerCase();
+
+  // Safe rank parsing
+  let rank = Number(card.rank);
+  if (isNaN(rank)) {
+    const letterMap = { a: 1, j: 11, q: 12, k: 13 };
+    rank = letterMap[String(card.rank).toLowerCase()] || 1;
+  }
+  if (rank < 1 || rank > 13) rank = 1;
+
   const suitOffsets = { spades: 1, diamonds: 2, clubs: 3, hearts: 4 };
-  const sOff = suitOffsets[String(suitName).toLowerCase()] || 1;
+  const sOff =
+    suitOffsets[sLower] ||
+    (sLower.startsWith('sp') ? 1 : sLower.startsWith('di') ? 2 : sLower.startsWith('cl') ? 3 : 4);
   const k = rank === 1 ? 12 : rank - 2;
   const cardNum = card.card_number || k * 4 + sOff;
-  const cardImgSrc = card.image || `/cards/${cardNum}.png`;
+
+  // Primary 52 cards PNG: /cards/1.png to /cards/52.png
+  const cardImgSrc = `/cards/${cardNum}.png`;
+
+  const isRed = sLower === 'hearts' || sLower === 'diamonds';
+  const rankLabel = RANK_LABELS[rank - 1] || String(rank);
+  const suitSym =
+    typeof card.suit === 'object' && card.suit.sym
+      ? card.suit.sym
+      : sLower === 'hearts'
+      ? '♥'
+      : sLower === 'diamonds'
+      ? '♦'
+      : sLower === 'clubs'
+      ? '♣'
+      : '♠';
 
   return (
     <div
@@ -54,13 +80,35 @@ function CardFront({ card }) {
         boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.5)',
       }}
     >
+      {/* Background card face fallback */}
+      <div
+        className="absolute inset-0 flex flex-col justify-between p-1.5 select-none"
+        style={{ color: isRed ? '#d4141c' : '#15151f', background: '#ffffff' }}
+      >
+        <div className="flex flex-col items-center leading-none font-body font-extrabold self-start">
+          <span className="text-[17px]">{rankLabel}</span>
+          <span className="text-[13px] -mt-0.5">{suitSym}</span>
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center text-[38px] opacity-25">
+          {suitSym}
+        </div>
+        <div className="flex flex-col items-center leading-none font-body font-extrabold rotate-180 self-end">
+          <span className="text-[17px]">{rankLabel}</span>
+          <span className="text-[13px] -mt-0.5">{suitSym}</span>
+        </div>
+      </div>
+
+      {/* 52 Cards PNG image from /cards/1.png to /cards/52.png */}
       <img
         src={cardImgSrc}
         alt={card.name || `Card ${cardNum}`}
-        className="w-full h-full object-fill pointer-events-none select-none rounded-[7px]"
+        className="relative z-10 w-full h-full object-fill pointer-events-none select-none rounded-[7px]"
         onError={(e) => {
-          e.target.onerror = null;
-          e.target.src = `/cards/${cardNum}.png`;
+          if (card.image && e.target.src !== card.image) {
+            e.target.src = card.image;
+          } else if (!e.target.src.includes('/images/cards/')) {
+            e.target.src = `/images/cards/${sLower}_${rank}.png`;
+          }
         }}
       />
     </div>

@@ -71,50 +71,119 @@ export const api = {
     }
   },
 
-  async getResults() {
+  async getResults(limit = 10, offset = 0) {
+    const query = `limit=${limit}&offset=${offset}`;
     try {
-      const res = await fetch(`${API_BASE}/api/dragon/results`);
+      const res = await fetch(`${API_BASE}/dragon_results?${query}`);
       return await res.json();
     } catch (e) {
-      console.warn('API getResults error:', e);
-      return null;
+      console.warn('API getResults error, trying aliases/direct:', e);
+      try {
+        const res2 = await fetch(`${API_BASE}/api/dragon/results?${query}`);
+        return await res2.json();
+      } catch (err2) {
+        try {
+          const res3 = await fetch(`https://api.wingo4all.site/dragon_results?${query}`);
+          return await res3.json();
+        } catch (err3) {
+          console.warn('Direct getResults error:', err3);
+          return null;
+        }
+      }
     }
   },
 
   async getCurrentRound() {
     try {
-      const res = await fetch(`${API_BASE}/api/dragon/current-round`);
+      const res = await fetch(`${API_BASE}/dragon/current-round`);
       return await res.json();
     } catch (e) {
-      console.warn('API getCurrentRound error:', e);
-      return null;
+      console.warn('API getCurrentRound error, trying aliases/direct:', e);
+      try {
+        const res2 = await fetch(`${API_BASE}/api/dragon/current-round`);
+        return await res2.json();
+      } catch (err2) {
+        try {
+          const res3 = await fetch('https://api.wingo4all.site/dragon/current-round');
+          return await res3.json();
+        } catch (err3) {
+          console.warn('Direct getCurrentRound error:', err3);
+          return null;
+        }
+      }
     }
   },
 
-  async placeBet({ spot, amount, dragon, tiger, tie, userid = 12, username = 'Akash_Rai' }) {
+  async placeBet({ spot, amount, dragon, tiger, tie, tokenOverride, userid = 12, username = 'Akash_Rai' }) {
+    const token = tokenOverride || getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['token'] = token;
+    }
+
+    const payload = spot
+      ? { spot, amount, userid, username }
+      : { dragon, tiger, tie, userid, username };
+
     try {
-      const payload = spot
-        ? { spot, amount, userid, username }
-        : { dragon, tiger, tie, userid, username };
-      const res = await fetch(`${API_BASE}/api/dragon/bet`, {
+      const res = await fetch(`${API_BASE}/dragon/bet`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
       return await res.json();
     } catch (e) {
-      console.warn('API placeBet error:', e);
-      return null;
+      console.warn('API placeBet error, trying aliases/direct:', e);
+      try {
+        const res2 = await fetch(`${API_BASE}/api/dragon/bet`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        return await res2.json();
+      } catch (err2) {
+        try {
+          const res3 = await fetch('https://api.wingo4all.site/dragon/bet', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+          });
+          return await res3.json();
+        } catch (err3) {
+          console.warn('Direct placeBet error:', err3);
+          return null;
+        }
+      }
     }
   },
 
-  async getBetHistory(userid = 12) {
+  async getBetHistory({ limit = 10, offset = 0, tokenOverride, userid = 12 } = {}) {
+    const token = tokenOverride || getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['token'] = token;
+    }
+    const query = `limit=${limit}&offset=${offset}&userid=${userid}`;
+
     try {
-      const res = await fetch(`${API_BASE}/api/dragon/bet-history?userid=${userid}`);
+      const res = await fetch(`${API_BASE}/dragon/bet-history?${query}`, { headers });
       return await res.json();
     } catch (e) {
-      console.warn('API getBetHistory error:', e);
-      return null;
+      console.warn('API getBetHistory error, trying aliases/direct:', e);
+      try {
+        const res2 = await fetch(`${API_BASE}/api/dragon/bet-history?${query}`, { headers });
+        return await res2.json();
+      } catch (err2) {
+        try {
+          const res3 = await fetch(`https://api.wingo4all.site/dragon/bet-history?${query}`, { headers });
+          return await res3.json();
+        } catch (err3) {
+          console.warn('Direct getBetHistory error:', err3);
+          return null;
+        }
+      }
     }
   },
 

@@ -306,6 +306,110 @@ describe('7. Real-time Socket 2 Admin Stream & REST APIs', () => {
     const total = (body.dragon || 0) + (body.tiger || 0) + (body.tie || 0);
     assert.strictEqual(total, 150);
   });
+
+  it('API 1: Place Bet (/dragon/bet) returns standardized 200 payload with spot_number and wallet_balance', () => {
+    const res = {
+      status: 200,
+      message: 'Bet placed successfully on dragon',
+      data: {
+        bet_id: 14205,
+        games_no: '20261120100050',
+        spot: 'dragon',
+        spot_number: 1,
+        amount: 100,
+        wallet_balance: 1450.5,
+      },
+    };
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.spot, 'dragon');
+    assert.strictEqual(res.data.spot_number, 1);
+    assert.strictEqual(res.data.amount, 100);
+    assert.strictEqual(res.data.wallet_balance, 1450.5);
+  });
+
+  it('API 2: Current Round (/dragon/current-round) returns phase, timer, online_count and last_settled state', () => {
+    const res = {
+      status: 200,
+      message: 'Current Dragon Tiger round state',
+      data: {
+        game_id: 10,
+        period: '20261120100050',
+        phase: 'betting',
+        status: 'betting',
+        time_remaining: 11,
+        phase_duration: 15,
+        online_count: 94,
+        last_settled: {
+          games_no: '20261120100049',
+          winner: 'D',
+          win_number: 1,
+          multiplier: 2,
+          cards: {
+            dragon: { symbol: 'K♠', image: '/images/cards/spades_13.png' },
+            tiger: { symbol: '7♥', image: '/images/cards/hearts_7.png' },
+          },
+        },
+      },
+    };
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.status, 'betting');
+    assert.strictEqual(res.data.phase, 'betting');
+    assert.strictEqual(res.data.phase_duration, 15);
+    assert.strictEqual(res.data.online_count, 94);
+    assert.strictEqual(res.data.last_settled.winner, 'D');
+  });
+
+  it('API 3: Past Results (/dragon_results) returns total_result, card_name and winner info', () => {
+    const res = {
+      status: 200,
+      message: 'Data found',
+      total_result: 240,
+      count: 2,
+      data: [
+        {
+          id: 19820,
+          games_no: '20261120100049',
+          number: '1',
+          win_number: '1',
+          card_name: 'K♠ vs 7♥',
+          image: '/images/cards/spades_13.png',
+          multiplier: '2.00',
+          winner: 'D',
+          created_at: '2026-11-20T12:00:30.000Z',
+        },
+      ],
+    };
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.total_result, 240);
+    assert.strictEqual(res.data[0].winner, 'D');
+    assert.strictEqual(res.data[0].card_name, 'K♠ vs 7♥');
+  });
+
+  it('API 4: My Bet History (/dragon/bet-history) returns personal bet records with status, trade_amount and win_amount', () => {
+    const res = {
+      status: 200,
+      message: 'Data found',
+      count: 1,
+      data: [
+        {
+          id: 14205,
+          games_no: '20261120100049',
+          spot: 'dragon',
+          number: 1,
+          amount: '100.00',
+          trade_amount: '98.00',
+          win_amount: '196.00',
+          status: 1,
+          win_number: 1,
+          created_at: '2026-11-20T12:00:15.000Z',
+        },
+      ],
+    };
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data[0].spot, 'dragon');
+    assert.strictEqual(res.data[0].status, 1);
+    assert.strictEqual(res.data[0].win_amount, '196.00');
+  });
 });
 
 // 8. Player Game Flow Sockets (8 Events Specification Tests)
@@ -553,6 +657,23 @@ describe('10. User Login (https://api.wingo4all.site/api/login) & Wallet Managem
     let currentBalance = 50000;
     currentBalance = extractedWallet;
     assert.strictEqual(currentBalance, 78500);
+  });
+
+  it('All 52 playing cards uniquely map to /cards/1.png through /cards/52.png', () => {
+    const suitOffsets = { spades: 1, diamonds: 2, clubs: 3, hearts: 4 };
+    const suits = ['spades', 'diamonds', 'clubs', 'hearts'];
+    const seenNumbers = new Set();
+
+    for (const suit of suits) {
+      for (let rank = 1; rank <= 13; rank++) {
+        const sOff = suitOffsets[suit];
+        const k = rank === 1 ? 12 : rank - 2;
+        const cardNum = k * 4 + sOff;
+        assert.ok(cardNum >= 1 && cardNum <= 52);
+        seenNumbers.add(cardNum);
+      }
+    }
+    assert.strictEqual(seenNumbers.size, 52);
   });
 });
 

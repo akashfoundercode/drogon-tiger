@@ -24,7 +24,7 @@ export function drawCard() {
     suit,
     symbol: `${RANK_LABELS[rank - 1]}${suit.sym}`,
     card_number: cardNum,
-    image: `/images/cards/${suit.key}_${rank}.png`,
+    image: `/cards/${cardNum}.png`,
   };
 }
 
@@ -41,7 +41,7 @@ function makeCard(rank, suit) {
     suit,
     symbol: `${RANK_LABELS[rank - 1]}${suit.sym}`,
     card_number: cardNum,
-    image: `/images/cards/${suit.key}_${rank}.png`,
+    image: `/cards/${cardNum}.png`,
   };
 }
 

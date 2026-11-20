@@ -81,6 +81,23 @@ for (let i = 120; i >= 1; i--) {
   });
 }
 
+let lastSettled = {
+  games_no: last120Results[0]?.period || '20261120100049',
+  winner: last120Results[0]?.winner || 'D',
+  win_number: last120Results[0]?.win_number || 1,
+  multiplier: last120Results[0]?.winner === 'Tie' ? 5 : 2,
+  cards: {
+    dragon: {
+      symbol: last120Results[0]?.dragon_card?.symbol || 'K♠',
+      image: last120Results[0]?.dragon_card?.image || '/images/cards/spades_13.png',
+    },
+    tiger: {
+      symbol: last120Results[0]?.tiger_card?.symbol || '7♥',
+      image: last120Results[0]?.tiger_card?.image || '/images/cards/hearts_7.png',
+    },
+  },
+};
+
 function getUserBalance(userid) {
   if (!userBalances.has(userid)) {
     userBalances.set(userid, 50000);
@@ -289,15 +306,44 @@ export function startGameloop() {
             setUserBalance(uid, getUserBalance(uid) + winAmount);
           }
           const history = userBetHistory.get(uid) || [];
-          history.unshift({
-            period: currentPeriod,
-            bets: placedBets,
-            winner: currentWinner,
-            winAmount,
-            created_at: new Date().toISOString(),
-          });
-          userBetHistory.set(uid, history.slice(0, 50));
+          for (const spotName of ['dragon', 'tiger', 'tie']) {
+            const amt = placedBets[spotName];
+            if (amt > 0) {
+              const spotNumber = spotName === 'dragon' ? 1 : spotName === 'tiger' ? 2 : 3;
+              const isWon =
+                (spotName === 'dragon' && currentWinner === 'D') ||
+                (spotName === 'tiger' && currentWinner === 'T') ||
+                (spotName === 'tie' && currentWinner === 'Tie');
+              const mult = spotName === 'tie' ? 5 : 2;
+              const winAmt = isWon ? amt * mult : 0;
+              const tradeAmt = (amt * 0.98).toFixed(2);
+              history.unshift({
+                id: ++betIdCounter,
+                games_no: currentPeriod,
+                spot: spotName,
+                number: spotNumber,
+                amount: Number(amt).toFixed(2),
+                trade_amount: tradeAmt,
+                win_amount: winAmt.toFixed(2),
+                status: isWon ? 1 : 2, // 1 = Won, 2 = Lost
+                win_number: currentWinNumber,
+                created_at: new Date().toISOString(),
+              });
+            }
+          }
+          userBetHistory.set(uid, history.slice(0, 100));
         }
+
+        lastSettled = {
+          games_no: currentPeriod,
+          winner: currentWinner,
+          win_number: currentWinNumber,
+          multiplier: currentMultiplier,
+          cards: {
+            dragon: { symbol: currentCards.dragon.symbol, image: currentCards.dragon.image },
+            tiger: { symbol: currentCards.tiger.symbol, image: currentCards.tiger.image },
+          },
+        };
 
         // Record round in last120Results
         const newResult = {
@@ -479,9 +525,13 @@ function handlePlaceBet({ spot, amount, dragon, tiger, tie, userid = 12, usernam
     return { status: 400, message: 'Betting is closed for this round' };
   }
 
+  const spotNumberMap = { dragon: 1, tiger: 2, tie: 3 };
+  const numberSpotMap = { 1: 'dragon', 2: 'tiger', 3: 'tie', '1': 'dragon', '2': 'tiger', '3': 'tie' };
+
   const betsToPlace = [];
-  if (spot && amount > 0) {
-    const s = String(spot).toLowerCase();
+  if (spot !== undefined && spot !== null && amount > 0) {
+    let s = String(spot).toLowerCase();
+    if (numberSpotMap[s]) s = numberSpotMap[s];
     if (['dragon', 'tiger', 'tie'].includes(s)) {
       betsToPlace.push({ spot: s, amount: Number(amount) });
     }
@@ -520,6 +570,22 @@ function handlePlaceBet({ spot, amount, dragon, tiger, tie, userid = 12, usernam
     };
     currentRoundBets.push(lastPlaced);
 
+    // Record pending bet in userBetHistory
+    const history = userBetHistory.get(userid) || [];
+    history.unshift({
+      id: lastPlaced.id,
+      games_no: currentPeriod,
+      spot: b.spot,
+      number: spotNumberMap[b.spot] || 1,
+      amount: Number(b.amount).toFixed(2),
+      trade_amount: (b.amount * 0.98).toFixed(2),
+      win_amount: '0.00',
+      status: 0, // 0 = Pending
+      win_number: 0,
+      created_at: lastPlaced.created_at,
+    });
+    userBetHistory.set(userid, history.slice(0, 100));
+
     // 5. Broadcast dragon_tiger:bet_pulse to animate chips on table for all players
     const pulsePayload = {
       spot: b.spot,
@@ -534,11 +600,23 @@ function handlePlaceBet({ spot, amount, dragon, tiger, tie, userid = 12, usernam
 
   broadcastAdminStream(lastPlaced);
 
+  const mainSpot = lastPlaced ? lastPlaced.spot : betsToPlace[0].spot;
+  const spotNum = spotNumberMap[mainSpot] || 1;
+  const newBalance = getUserBalance(userid);
+
   return {
     status: 200,
-    message: 'Bet placed successfully',
+    message: `Bet placed successfully on ${mainSpot}`,
+    data: {
+      bet_id: lastPlaced ? lastPlaced.id : ++betIdCounter,
+      games_no: currentPeriod,
+      spot: mainSpot,
+      spot_number: spotNum,
+      amount: totalAmount,
+      wallet_balance: newBalance,
+    },
     period: currentPeriod,
-    balance: getUserBalance(userid),
+    balance: newBalance,
     totals: { ...totals },
     latest_bet: lastPlaced,
   };
@@ -601,50 +679,129 @@ app.get('/api/profile', (req, res) => {
   });
 });
 
-// 1. Place Bet (supports /api/dragon/bet and /api/dragon_bet)
+// 1. Place Bet (supports /dragon/bet, /dragon_bet, /dragon-tiger/bet and /api/ prefixes)
+const placeBetRoutes = [
+  '/dragon/bet',
+  '/dragon_bet',
+  '/dragon-tiger/bet',
+  '/api/dragon/bet',
+  '/api/dragon_bet',
+  '/api/dragon-tiger/bet',
+];
 const placeBetHandler = (req, res) => {
   const result = handlePlaceBet(req.body || {});
   return res.status(result.status === 200 ? 200 : 400).json(result);
 };
-app.post('/api/dragon/bet', placeBetHandler);
-app.post('/api/dragon_bet', placeBetHandler);
+placeBetRoutes.forEach((route) => app.post(route, placeBetHandler));
 
-// 2. Last 120 Results
-app.get('/api/dragon/results', (req, res) => {
+// 2. Current Round State & Timer (/dragon/current-round, /dragon/status, /dragon-tiger/current-round)
+const currentRoundRoutes = [
+  '/dragon/current-round',
+  '/dragon/status',
+  '/dragon-tiger/current-round',
+  '/api/dragon/current-round',
+  '/api/dragon/status',
+  '/api/dragon-tiger/current-round',
+];
+const currentRoundHandler = (req, res) => {
+  const phaseDuration =
+    status === 'betting'
+      ? 15
+      : status === 'revealing'
+      ? 6
+      : status === 'versus'
+      ? 4
+      : status === 'place_bets'
+      ? 2
+      : 5;
+
+  res.json({
+    status: 200,
+    message: 'Current Dragon Tiger round state',
+    data: {
+      game_id: gameId,
+      period: currentPeriod,
+      phase: status,
+      status,
+      time_remaining: timeRemaining,
+      phase_duration: phaseDuration,
+      online_count: 94,
+      last_settled: lastSettled,
+    },
+  });
+};
+currentRoundRoutes.forEach((route) => app.get(route, currentRoundHandler));
+
+// 3. Past Results History (/dragon_results, /dragon/results, /dragon-tiger/results)
+const resultsRoutes = [
+  '/dragon_results',
+  '/dragon/results',
+  '/dragon-tiger/results',
+  '/api/dragon_results',
+  '/api/dragon/results',
+  '/api/dragon-tiger/results',
+];
+const resultsHandler = (req, res) => {
+  const limit = Math.min(Number(req.query.limit || 10), 120);
+  const offset = Number(req.query.offset || 0);
+
+  const formattedResults = last120Results.map((r, i) => {
+    const dCard = r.dragon_card || {};
+    const tCard = r.tiger_card || {};
+    const cardName = `${dCard.symbol || 'K♠'} vs ${tCard.symbol || '7♥'}`;
+    const winnerCardImg =
+      r.winner === 'T'
+        ? tCard.image || '/images/cards/hearts_7.png'
+        : dCard.image || '/images/cards/spades_13.png';
+
+    return {
+      id: r.id || 19820 - i,
+      games_no: r.period,
+      number: String(r.win_number || (r.winner === 'D' ? 1 : r.winner === 'T' ? 2 : 3)),
+      win_number: String(r.win_number || (r.winner === 'D' ? 1 : r.winner === 'T' ? 2 : 3)),
+      card_name: cardName,
+      image: winnerCardImg,
+      multiplier: Number(r.multiplier || (r.winner === 'Tie' ? 5 : 2)).toFixed(2),
+      winner: r.winner,
+      created_at: r.created_at || new Date().toISOString(),
+    };
+  });
+
+  const sliced = formattedResults.slice(offset, offset + limit);
   res.json({
     status: 200,
     message: 'Data found',
-    total_results: last120Results.length,
-    data: last120Results,
+    total_result: last120Results.length,
+    count: sliced.length,
+    data: sliced,
   });
-});
+};
+resultsRoutes.forEach((route) => app.get(route, resultsHandler));
 
-// 3. Current Round
-app.get('/api/dragon/current-round', (req, res) => {
-  res.json({
-    status: 200,
-    data: {
-      period: currentPeriod,
-      game_id: gameId,
-      status,
-      time_remaining: timeRemaining,
-      cards: currentCards,
-      winner: currentWinner,
-      multiplier: currentMultiplier,
-    },
-  });
-});
+// 4. My Bet History (/dragon/bet-history, /dragon_bet_history)
+const betHistoryRoutes = [
+  '/dragon/bet-history',
+  '/dragon_bet_history',
+  '/api/dragon/bet-history',
+  '/api/dragon_bet_history',
+];
+const betHistoryHandler = (req, res) => {
+  const userid = Number(req.query.userid || req.body?.userid || 12);
+  const limit = Number(req.query.limit || req.body?.limit || 10);
+  const offset = Number(req.query.offset || req.body?.offset || 0);
 
-// 4. My Bet History
-app.get('/api/dragon/bet-history', (req, res) => {
-  const userid = Number(req.query.userid || 12);
   const history = userBetHistory.get(userid) || [];
+  const sliced = history.slice(offset, offset + limit);
   res.json({
     status: 200,
-    message: 'History fetched',
-    total: history.length,
-    data: history,
+    message: 'Data found',
+    count: sliced.length,
+    data: sliced,
   });
+};
+betHistoryRoutes.forEach((route) => {
+  app.get(route, betHistoryHandler);
+  app.post(route, betHistoryHandler);
 });
 
 // 5. Admin Force Winner

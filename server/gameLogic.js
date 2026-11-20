@@ -30,6 +30,13 @@ const RANK_LETTERS = {
   13: 'K',
 };
 
+export function getCardNumber(rank, suitKey) {
+  const suitOffsets = { spades: 1, diamonds: 2, clubs: 3, hearts: 4 };
+  const sOff = suitOffsets[String(suitKey).toLowerCase()] || 1;
+  const k = rank === 1 ? 12 : rank - 2;
+  return k * 4 + sOff;
+}
+
 export function createDeck() {
   const deck = [];
   for (const suit of SUITS) {
@@ -37,12 +44,15 @@ export function createDeck() {
       const rankStr = RANK_LETTERS[rank] || String(rank);
       const symbol = `${rankStr}${SUIT_SYMBOLS[suit]}`;
       const name = `${RANK_NAMES[rank]} of ${suit.charAt(0).toUpperCase() + suit.slice(1)}`;
+      const cardNum = getCardNumber(rank, suit);
       deck.push({
         rank,
         suit,
         name,
         symbol,
+        card_number: cardNum,
         image: `/images/cards/${suit}_${rank}.png`,
+        card_url: `/cards/${cardNum}.png`,
       });
     }
   }

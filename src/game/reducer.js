@@ -5,6 +5,14 @@ import { compareCards } from './cards.js';
 const zero = () => ({ dragon: 0, tie: 0, tiger: 0 });
 const sum = (b) => b.dragon + b.tie + b.tiger;
 
+function normalizeWinner(value, winNumber) {
+  const raw = value ?? winNumber;
+  if (raw === 'D' || raw === 'dragon' || raw === 1 || raw === '1') return 'dragon';
+  if (raw === 'T' || raw === 'tiger' || raw === 2 || raw === '2') return 'tiger';
+  if (raw === 'Tie' || raw === 'tie' || raw === 'TIE' || raw === 3 || raw === '3') return 'tie';
+  return null;
+}
+
 function seedHistory() {
   const out = [];
   const baseRound = 1000120;
@@ -81,6 +89,7 @@ export function reducer(state, action) {
         cards: { dragon: null, tiger: null },
         reveal: { dragon: false, tiger: false },
         result: null,
+        serverOutcome: null,
       };
     }
 
@@ -102,11 +111,19 @@ export function reducer(state, action) {
     }
 
     case 'SERVER_BETTING': {
+      const winner = normalizeWinner(action.winner, action.win_number);
       return {
         ...state,
         phase: PHASES.BETTING,
         timer: action.time_remaining ?? 15,
         roundNo: action.period || state.roundNo,
+        serverOutcome: winner
+          ? {
+              winner,
+              win_number: action.win_number,
+              multiplier: action.multiplier,
+            }
+          : state.serverOutcome,
       };
     }
 
@@ -125,15 +142,9 @@ export function reducer(state, action) {
     case 'SERVER_REVEALING': {
       const { dragon, tiger } = action.cards || state.cards || {};
       let winner = 'dragon';
-      const wRaw =
-        action.winner ||
-        (action.win_number === 1 ? 'D' : action.win_number === 2 ? 'T' : action.win_number === 3 ? 'Tie' : null);
-      if (wRaw === 'D' || wRaw === 'dragon' || wRaw === 1 || wRaw === '1') {
-        winner = 'dragon';
-      } else if (wRaw === 'T' || wRaw === 'tiger' || wRaw === 2 || wRaw === '2') {
-        winner = 'tiger';
-      } else if (wRaw === 'Tie' || wRaw === 'tie' || wRaw === 3 || wRaw === '3') {
-        winner = 'tie';
+      const wRaw = normalizeWinner(action.winner, action.win_number);
+      if (wRaw) {
+        winner = wRaw;
       } else if (state.serverOutcome?.winner) {
         winner = state.serverOutcome.winner;
       } else if (dragon && tiger) {
@@ -148,8 +159,8 @@ export function reducer(state, action) {
         cards: action.cards || state.cards,
         serverOutcome: {
           winner,
-          win_number: action.win_number || (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
-          multiplier: action.multiplier || (winner === 'tie' ? 5 : 2),
+          win_number: action.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
+          multiplier: action.multiplier ?? (winner === 'tie' ? 5 : 2),
         },
         reveal: { dragon: false, tiger: false },
       };
@@ -158,15 +169,9 @@ export function reducer(state, action) {
     case 'SERVER_WINNER_POPUP': {
       const { dragon, tiger } = action.cards || state.cards || {};
       let winner = 'dragon';
-      const wRaw =
-        action.winner ||
-        (action.win_number === 1 ? 'D' : action.win_number === 2 ? 'T' : action.win_number === 3 ? 'Tie' : null);
-      if (wRaw === 'D' || wRaw === 'dragon' || wRaw === 1 || wRaw === '1') {
-        winner = 'dragon';
-      } else if (wRaw === 'T' || wRaw === 'tiger' || wRaw === 2 || wRaw === '2') {
-        winner = 'tiger';
-      } else if (wRaw === 'Tie' || wRaw === 'tie' || wRaw === 3 || wRaw === '3') {
-        winner = 'tie';
+      const wRaw = normalizeWinner(action.winner, action.win_number);
+      if (wRaw) {
+        winner = wRaw;
       } else if (state.serverOutcome?.winner) {
         winner = state.serverOutcome.winner;
       } else if (dragon && tiger) {
@@ -177,15 +182,22 @@ export function reducer(state, action) {
         winner === 'tie'
           ? bets.tie * 5
           : bets[winner] * 2;
-      const stake = sum(state.bets);
-      const payout = payoutFor(state.bets);
+      const existingResult = state.result;
+      const stake = existingResult?.stake ?? sum(state.bets);
+      const payout = existingResult?.payout ?? payoutFor(state.bets);
+      const alreadySettled = state.phase === PHASES.RESULT;
       return {
         ...state,
         phase: PHASES.RESULT,
         timer: action.time_remaining ?? 5,
         cards: action.cards || state.cards,
         reveal: { dragon: true, tiger: true },
-        balance: state.balance + payout,
+        balance: alreadySettled ? state.balance : state.balance + payout,
+        serverOutcome: {
+          winner,
+          win_number: action.win_number ?? state.serverOutcome?.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
+          multiplier: state.serverOutcome?.multiplier ?? (winner === 'tie' ? 5 : 2),
+        },
         history: [{ id: `r${state.roundNo}`, roundNo: state.roundNo, result: winner }, ...state.history].slice(0, 120),
         result: { winner, stake, payout, net: payout - stake },
       };
@@ -242,6 +254,7 @@ export function reducer(state, action) {
         cards: { dragon: null, tiger: null },
         reveal: { dragon: false, tiger: false },
         result: null,
+        serverOutcome: null,
         activeBots: {},
         bots: state.bots.map((b) => ({
           ...b,

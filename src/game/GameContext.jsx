@@ -19,6 +19,13 @@ import { api, connectGameSockets, placeBetSocket, getAuthToken, setAuthToken } f
 const GameContext = createContext(null);
 export const useGame = () => useContext(GameContext);
 
+function normalizeWinner(value) {
+  if (value === 'D' || value === 'dragon' || value === 1 || value === '1') return 'dragon';
+  if (value === 'T' || value === 'tiger' || value === 2 || value === '2') return 'tiger';
+  if (value === 'Tie' || value === 'tie' || value === 'TIE' || value === 3 || value === '3') return 'tie';
+  return null;
+}
+
 // Break an amount into chip denominations (largest first), capped for visuals.
 function decompose(amount, cap = 10) {
   const out = [];
@@ -263,14 +270,7 @@ export function GameProvider({ children }) {
       // Synchronize admin_force winner from response ("D", "T", "Tie", or "auto")
       const adminForce = res.admin_force ?? data.admin_force;
       if (adminForce) {
-        const fw =
-          adminForce === 'D'
-            ? 'dragon'
-            : adminForce === 'T'
-            ? 'tiger'
-            : adminForce === 'Tie'
-            ? 'tie'
-            : adminForce;
+        const fw = normalizeWinner(adminForce) || adminForce;
         setForceWinner(fw);
         forceWinnerRef.current = fw;
       }
@@ -278,12 +278,16 @@ export function GameProvider({ children }) {
       const pStatus = res.phase || res.game_status || res.status || data.phase || data.status;
       const period = res.period || data.period;
       const tRem = res.time_remaining ?? data.time_remaining;
+      const winner = normalizeWinner(res.winner ?? data.winner) || normalizeWinner(res.win_number ?? data.win_number);
 
       if (pStatus === 'betting') {
         dispatch({
           type: 'SERVER_BETTING',
           period,
           time_remaining: tRem,
+          winner,
+          win_number: res.win_number ?? data.win_number,
+          multiplier: res.multiplier ?? data.multiplier,
         });
       } else if (pStatus === 'versus' || pStatus === 'idle') {
         dispatch({
@@ -303,7 +307,7 @@ export function GameProvider({ children }) {
           period,
           time_remaining: tRem,
           cards: res.cards || data.cards,
-          winner: res.winner || data.winner,
+          winner: res.winner ?? data.winner ?? adminForce,
           win_number: res.win_number || data.win_number,
           multiplier: res.multiplier || data.multiplier,
         });
@@ -313,7 +317,7 @@ export function GameProvider({ children }) {
           period,
           time_remaining: tRem,
           cards: res.cards || data.cards,
-          winner: res.winner || data.winner,
+          winner: res.winner ?? data.winner ?? adminForce,
           win_number: res.win_number || data.win_number,
         });
       }
@@ -327,7 +331,7 @@ export function GameProvider({ children }) {
       onForce: (data) => {
         hasServer.current = true;
         if (!data) return;
-        const forced = data.winner || data.admin_force;
+        const forced = normalizeWinner(data.winner ?? data.admin_force) || data.winner || data.admin_force;
         if (forced) {
           forceWinnerRef.current = forced;
           setForceWinner(forced);
@@ -383,13 +387,27 @@ export function GameProvider({ children }) {
         // Phase 3: Active Betting Window
         if (curPhase === 'betting') {
           const s = stateRef.current;
+          const winner = data.winner ?? data.win_number ?? data.admin_force ?? forceWinnerRef.current;
           if (s.phase !== PHASES.BETTING || String(s.roundNo) !== String(data.period)) {
             dispatch({
               type: 'SERVER_BETTING',
               period: data.period,
               time_remaining: data.time_remaining,
+              winner,
+              win_number: data.win_number,
+              multiplier: data.multiplier,
             });
           } else {
+            if (winner) {
+              dispatch({
+                type: 'SERVER_BETTING',
+                period: data.period,
+                time_remaining: data.time_remaining,
+                winner,
+                win_number: data.win_number,
+                multiplier: data.multiplier,
+              });
+            }
             dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
           return;
@@ -404,7 +422,7 @@ export function GameProvider({ children }) {
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner,
+              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
               win_number: data.win_number,
               multiplier: data.multiplier,
             });
@@ -416,11 +434,20 @@ export function GameProvider({ children }) {
                   type: 'SERVER_WINNER_POPUP',
                   period: data.period,
                   cards: data.cards,
-                  winner: data.winner,
+                  winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
                   win_number: data.win_number,
                 });
               }
             }, 4500);
+          } else if (data.winner || data.win_number || data.cards) {
+            dispatch({
+              type: 'SERVER_WINNER_POPUP',
+              period: data.period,
+              time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
+              win_number: data.win_number,
+            });
           } else {
             dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
@@ -430,13 +457,23 @@ export function GameProvider({ children }) {
         // Phase 5: Winner Pop up / Result
         if (curPhase === 'winner_popup' || curPhase === 'result') {
           const s = stateRef.current;
+          const resultWinner = data.winner ?? data.win_number ?? data.admin_force ?? forceWinnerRef.current;
           if (s.phase !== PHASES.RESULT) {
             dispatch({
               type: 'SERVER_WINNER_POPUP',
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner,
+              winner: resultWinner,
+              win_number: data.win_number,
+            });
+          } else if (resultWinner || data.cards) {
+            dispatch({
+              type: 'SERVER_WINNER_POPUP',
+              period: data.period,
+              time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: resultWinner,
               win_number: data.win_number,
             });
           } else {
@@ -460,7 +497,16 @@ export function GameProvider({ children }) {
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner,
+              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
+              win_number: data.win_number,
+            });
+          } else if (data.winner || data.win_number || data.cards) {
+            dispatch({
+              type: 'SERVER_WINNER_POPUP',
+              period: data.period,
+              time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
               win_number: data.win_number,
             });
           }
@@ -471,7 +517,7 @@ export function GameProvider({ children }) {
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner,
+              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
               win_number: data.win_number,
               multiplier: data.multiplier,
             });
@@ -483,7 +529,7 @@ export function GameProvider({ children }) {
                   type: 'SERVER_WINNER_POPUP',
                   period: data.period,
                   cards: data.cards,
-                  winner: data.winner,
+                  winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
                   win_number: data.win_number,
                 });
               }

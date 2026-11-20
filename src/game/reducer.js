@@ -123,36 +123,56 @@ export function reducer(state, action) {
     }
 
     case 'SERVER_REVEALING': {
-      const winner =
-        action.winner === 'D'
-          ? 'dragon'
-          : action.winner === 'T'
-            ? 'tiger'
-            : 'tie';
+      const { dragon, tiger } = action.cards || state.cards || {};
+      let winner = 'dragon';
+      const wRaw =
+        action.winner ||
+        (action.win_number === 1 ? 'D' : action.win_number === 2 ? 'T' : action.win_number === 3 ? 'Tie' : null);
+      if (wRaw === 'D' || wRaw === 'dragon' || wRaw === 1 || wRaw === '1') {
+        winner = 'dragon';
+      } else if (wRaw === 'T' || wRaw === 'tiger' || wRaw === 2 || wRaw === '2') {
+        winner = 'tiger';
+      } else if (wRaw === 'Tie' || wRaw === 'tie' || wRaw === 3 || wRaw === '3') {
+        winner = 'tie';
+      } else if (state.serverOutcome?.winner) {
+        winner = state.serverOutcome.winner;
+      } else if (dragon && tiger) {
+        winner = compareCards(dragon, tiger);
+      }
+
       return {
         ...state,
         phase: PHASES.REVEAL,
         timer: action.time_remaining ?? 6,
         roundNo: action.period || state.roundNo,
-        cards: action.cards,
+        cards: action.cards || state.cards,
         serverOutcome: {
           winner,
-          win_number: action.win_number,
-          multiplier: action.multiplier,
+          win_number: action.win_number || (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
+          multiplier: action.multiplier || (winner === 'tie' ? 5 : 2),
         },
         reveal: { dragon: false, tiger: false },
       };
     }
 
     case 'SERVER_WINNER_POPUP': {
-      const winner =
-        action.winner === 'D'
-          ? 'dragon'
-          : action.winner === 'T'
-            ? 'tiger'
-            : action.winner === 'Tie'
-              ? 'tie'
-              : (state.serverOutcome?.winner || 'dragon');
+      const { dragon, tiger } = action.cards || state.cards || {};
+      let winner = 'dragon';
+      const wRaw =
+        action.winner ||
+        (action.win_number === 1 ? 'D' : action.win_number === 2 ? 'T' : action.win_number === 3 ? 'Tie' : null);
+      if (wRaw === 'D' || wRaw === 'dragon' || wRaw === 1 || wRaw === '1') {
+        winner = 'dragon';
+      } else if (wRaw === 'T' || wRaw === 'tiger' || wRaw === 2 || wRaw === '2') {
+        winner = 'tiger';
+      } else if (wRaw === 'Tie' || wRaw === 'tie' || wRaw === 3 || wRaw === '3') {
+        winner = 'tie';
+      } else if (state.serverOutcome?.winner) {
+        winner = state.serverOutcome.winner;
+      } else if (dragon && tiger) {
+        winner = compareCards(dragon, tiger);
+      }
+
       const payoutFor = (bets) =>
         winner === 'tie'
           ? bets.tie * 5
@@ -164,6 +184,7 @@ export function reducer(state, action) {
         phase: PHASES.RESULT,
         timer: action.time_remaining ?? 5,
         cards: action.cards || state.cards,
+        reveal: { dragon: true, tiger: true },
         balance: state.balance + payout,
         history: [{ id: `r${state.roundNo}`, roundNo: state.roundNo, result: winner }, ...state.history].slice(0, 120),
         result: { winner, stake, payout, net: payout - stake },

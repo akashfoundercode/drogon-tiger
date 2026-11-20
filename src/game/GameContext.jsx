@@ -79,7 +79,7 @@ export function GameProvider({ children }) {
     } catch (e) {}
   }, []);
 
-  const [forceWinner, setForceWinner] = useState('tiger'); // default to 'tiger' for testing
+  const [forceWinner, setForceWinner] = useState(null);
   const forceWinnerRef = useRef(forceWinner);
   forceWinnerRef.current = forceWinner;
 
@@ -307,6 +307,15 @@ export function GameProvider({ children }) {
           win_number: res.win_number || data.win_number,
           multiplier: res.multiplier || data.multiplier,
         });
+      } else if (pStatus === 'winner_popup' || pStatus === 'result') {
+        dispatch({
+          type: 'SERVER_WINNER_POPUP',
+          period,
+          time_remaining: tRem,
+          cards: res.cards || data.cards,
+          winner: res.winner || data.winner,
+          win_number: res.win_number || data.win_number,
+        });
       }
     };
 
@@ -386,19 +395,9 @@ export function GameProvider({ children }) {
           return;
         }
 
-        // Phase 4 & 5 tick updates
-        if (curPhase === 'revealing' || curPhase === 'winner_popup') {
-          dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
-        }
-      },
-
-      // Event 3: dragon_tiger:result (Final round result aur revealed cards)
-      onResult: (data) => {
-        hasServer.current = true;
-        if (!data) return;
-        const s = stateRef.current;
-
-        if (data.status === 'revealing' || (!data.status && data.cards)) {
+        // Phase 4: Revealing Cards
+        if (curPhase === 'revealing') {
+          const s = stateRef.current;
           if (s.phase !== PHASES.REVEAL && s.phase !== PHASES.RESULT) {
             dispatch({
               type: 'SERVER_REVEALING',
@@ -411,8 +410,26 @@ export function GameProvider({ children }) {
             });
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'dragon' }), 1600);
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'tiger' }), 3600);
+            later(() => {
+              if (stateRef.current.phase === PHASES.REVEAL) {
+                dispatch({
+                  type: 'SERVER_WINNER_POPUP',
+                  period: data.period,
+                  cards: data.cards,
+                  winner: data.winner,
+                  win_number: data.win_number,
+                });
+              }
+            }, 4500);
+          } else {
+            dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
-        } else if (data.status === 'winner_popup' || data.status === 'result') {
+          return;
+        }
+
+        // Phase 5: Winner Pop up / Result
+        if (curPhase === 'winner_popup' || curPhase === 'result') {
+          const s = stateRef.current;
           if (s.phase !== PHASES.RESULT) {
             dispatch({
               type: 'SERVER_WINNER_POPUP',
@@ -420,7 +437,57 @@ export function GameProvider({ children }) {
               time_remaining: data.time_remaining,
               cards: data.cards,
               winner: data.winner,
+              win_number: data.win_number,
             });
+          } else {
+            dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
+          }
+          return;
+        }
+      },
+
+      // Event 3: dragon_tiger:result (Final round result aur revealed cards)
+      onResult: (data) => {
+        hasServer.current = true;
+        if (!data) return;
+        const s = stateRef.current;
+        const curPhase = data.status || data.phase;
+
+        if (curPhase === 'winner_popup' || curPhase === 'result') {
+          if (s.phase !== PHASES.RESULT) {
+            dispatch({
+              type: 'SERVER_WINNER_POPUP',
+              period: data.period,
+              time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: data.winner,
+              win_number: data.win_number,
+            });
+          }
+        } else if (curPhase === 'revealing' || data.cards) {
+          if (s.phase !== PHASES.REVEAL && s.phase !== PHASES.RESULT) {
+            dispatch({
+              type: 'SERVER_REVEALING',
+              period: data.period,
+              time_remaining: data.time_remaining,
+              cards: data.cards,
+              winner: data.winner,
+              win_number: data.win_number,
+              multiplier: data.multiplier,
+            });
+            later(() => dispatch({ type: 'REVEAL_CARD', who: 'dragon' }), 1600);
+            later(() => dispatch({ type: 'REVEAL_CARD', who: 'tiger' }), 3600);
+            later(() => {
+              if (stateRef.current.phase === PHASES.REVEAL) {
+                dispatch({
+                  type: 'SERVER_WINNER_POPUP',
+                  period: data.period,
+                  cards: data.cards,
+                  winner: data.winner,
+                  win_number: data.win_number,
+                });
+              }
+            }, 4500);
           }
         }
 

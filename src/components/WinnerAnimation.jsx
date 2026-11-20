@@ -6,6 +6,14 @@ import tigerJumpGif from '../assets/winning/tiger_jump_HD_1280x720_3.4s.gif';
 import dragonJumpGif from '../assets/winning/dragon_jump_winning.gif';
 import { sfx } from '../game/sound.js';
 
+// Preload heavy winning GIFs in browser memory so they play with 0ms lag
+if (typeof window !== 'undefined') {
+  try {
+    const p1 = new Image(); p1.src = tigerJumpGif;
+    const p2 = new Image(); p2.src = dragonJumpGif;
+  } catch (e) {}
+}
+
 // Section 23 (Tiger Box - Right Red) Coordinates
 const BOX_23_X = 1298;
 const BOX_23_Y = 468;
@@ -66,9 +74,23 @@ const DRAGON_WALL_SHARDS = [
 export default function WinnerAnimation() {
   const { state } = useGame();
   const isResult = state.phase === PHASES.RESULT;
-  const winner = state.result?.winner;
-  const isTigerWin = isResult && winner === 'tiger';
-  const isDragonWin = isResult && winner === 'dragon';
+  const rawWinner =
+    state.result?.winner ||
+    state.serverOutcome?.winner ||
+    (state.cards?.dragon && state.cards?.tiger
+      ? (state.cards.dragon.rank > state.cards.tiger.rank
+          ? 'dragon'
+          : state.cards.tiger.rank > state.cards.dragon.rank
+          ? 'tiger'
+          : 'tie')
+      : null);
+
+  const isTigerWin =
+    isResult &&
+    (rawWinner === 'tiger' || rawWinner === 'T' || rawWinner === 2 || rawWinner === '2');
+  const isDragonWin =
+    isResult &&
+    (rawWinner === 'dragon' || rawWinner === 'D' || rawWinner === 1 || rawWinner === '1');
 
   useEffect(() => {
     if (isTigerWin) {
@@ -334,7 +356,7 @@ export default function WinnerAnimation() {
           >
             <img
               key={`tiger-${state.roundNo}`}
-              src={`${tigerJumpGif}?round=${state.roundNo}`}
+              src={tigerJumpGif}
               alt="Tiger Breakthrough Winning"
               className="w-full h-full object-contain pointer-events-none select-none"
               style={{
@@ -589,7 +611,7 @@ export default function WinnerAnimation() {
           >
             <img
               key={`fly-${state.roundNo}`}
-              src={`${dragonJumpGif}?round=${state.roundNo}`}
+              src={dragonJumpGif}
               alt="Dragon Breakthrough Winning"
               className="w-full h-full object-contain pointer-events-none select-none"
               style={{

@@ -417,40 +417,146 @@ function Celebration() {
 /* Personal result popup */
 function MyResult() {
   const { state } = useGame();
-  const r = state.phase === PHASES.RESULT ? state.result : null;
-  const show = r && r.stake > 0;
-  const won = r && r.net > 0;
-  const refund = r && r.net <= 0 && r.payout > 0;
+  const isResult = state.phase === PHASES.RESULT;
+  const r = isResult ? state.result : null;
+
+  const rawWinner =
+    r?.winner ||
+    state.serverOutcome?.winner ||
+    (state.cards?.dragon && state.cards?.tiger
+      ? (state.cards.dragon.rank > state.cards.tiger.rank
+          ? 'dragon'
+          : state.cards.tiger.rank > state.cards.dragon.rank
+          ? 'tiger'
+          : 'tie')
+      : null);
+
+  const winner =
+    rawWinner === 'D' || rawWinner === 'dragon' || rawWinner === 1 || rawWinner === '1'
+      ? 'dragon'
+      : rawWinner === 'T' || rawWinner === 'tiger' || rawWinner === 2 || rawWinner === '2'
+      ? 'tiger'
+      : rawWinner === 'Tie' || rawWinner === 'tie' || rawWinner === 3 || rawWinner === '3'
+      ? 'tie'
+      : null;
+
+  const show = isResult && (r?.stake > 0 || winner);
+  const hasBet = r && r.stake > 0;
+  const won = hasBet && r.net > 0;
+  const refund = hasBet && r.net <= 0 && r.payout > 0;
+  const lost = hasBet && !won && !refund;
+
   return (
     <AnimatePresence>
       {show && (
         <motion.div
           key={`res${state.roundNo}`}
-          className="absolute left-0 right-0 flex justify-center pointer-events-none"
-          style={{ top: 430, zIndex: 65 }}
+          className="absolute left-0 right-0 flex justify-center pointer-events-none select-none"
+          style={{ top: 400, zIndex: 160 }}
           initial={{ y: 40, opacity: 0, scale: 0.6 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: -30, opacity: 0 }}
-          transition={{ delay: 0.6, type: 'spring', stiffness: 240, damping: 16 }}
+          exit={{ y: -30, opacity: 0, scale: 0.8 }}
+          transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}
         >
           <div
-            className="flex flex-col items-center rounded-3xl px-12 py-4"
+            className="flex flex-col items-center rounded-3xl px-10 py-3.5"
             style={{
-              background: won ? 'linear-gradient(180deg,rgba(120,70,0,.95),rgba(50,24,0,.95))' : 'linear-gradient(180deg,rgba(40,20,50,.95),rgba(16,8,24,.95))',
-              border: `4px solid ${won ? '#ffd84a' : '#8a7aa8'}`,
-              boxShadow: won ? '0 0 60px rgba(255,200,60,.8), 0 12px 30px rgba(0,0,0,.7)' : '0 12px 30px rgba(0,0,0,.7)',
+              background:
+                winner === 'dragon'
+                  ? 'linear-gradient(180deg, rgba(3,25,75,0.96), rgba(1,10,35,0.96))'
+                  : winner === 'tiger'
+                  ? 'linear-gradient(180deg, rgba(85,15,3,0.96), rgba(30,4,1,0.96))'
+                  : 'linear-gradient(180deg, rgba(20,50,25,0.96), rgba(8,24,10,0.96))',
+              border: `3px solid ${winner === 'dragon' ? '#00e5ff' : winner === 'tiger' ? '#ff9d26' : '#4ade80'}`,
+              boxShadow:
+                winner === 'dragon'
+                  ? '0 0 50px rgba(0,229,255,0.7), 0 12px 30px rgba(0,0,0,0.85)'
+                  : winner === 'tiger'
+                  ? '0 0 50px rgba(255,140,20,0.7), 0 12px 30px rgba(0,0,0,0.85)'
+                  : '0 0 50px rgba(74,222,128,0.7), 0 12px 30px rgba(0,0,0,0.85)',
             }}
           >
-            <span className="font-display font-black text-[22px] tracking-[0.25em]" style={{ color: won ? '#fff3b0' : '#c9bde6' }}>
-              {won ? 'YOU WON' : r.winner === 'tie' && refund ? 'PARTIAL REFUND' : refund ? 'PAYOUT' : 'BETTER LUCK NEXT TIME'}
-            </span>
-            {(won || refund) && (
-              <span className="flex items-center gap-3 font-body font-extrabold text-[44px] leading-tight text-[#ffe27a]" style={{ textShadow: '0 3px 4px rgba(0,0,0,.8)' }}>
-                <Coins size={38} /> {formatINR(r.payout)}
-              </span>
+            {/* Dragon or Tiger Winner Mascot Header */}
+            <div className="flex items-center gap-3 mb-1">
+              {winner === 'dragon' && (
+                <>
+                  <img src={dragonLogoGif} alt="Dragon" className="w-12 h-12 object-contain" />
+                  <span
+                    className="font-display font-black text-[28px] tracking-wider italic"
+                    style={{
+                      background: 'linear-gradient(180deg, #ffffff 0%, #b3f0ff 30%, #00e5ff 60%, #0077ff 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))',
+                    }}
+                  >
+                    DRAGON WINS!
+                  </span>
+                </>
+              )}
+              {winner === 'tiger' && (
+                <>
+                  <img src={tigerLogoGif} alt="Tiger" className="w-12 h-12 object-contain" />
+                  <span
+                    className="font-display font-black text-[28px] tracking-wider italic"
+                    style={{
+                      background: 'linear-gradient(180deg, #ffffff 0%, #fff0a0 30%, #ff9d26 60%, #e04400 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))',
+                    }}
+                  >
+                    TIGER WINS!
+                  </span>
+                </>
+              )}
+              {winner === 'tie' && (
+                <>
+                  <span className="text-[32px]">🤝</span>
+                  <span
+                    className="font-display font-black text-[28px] tracking-wider italic"
+                    style={{
+                      background: 'linear-gradient(180deg, #ffffff 0%, #bbf7d0 30%, #4ade80 60%, #15803d 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))',
+                    }}
+                  >
+                    IT'S A TIE!
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Personal Bet Result (if player staked on this round) */}
+            {hasBet && (
+              <div className="flex flex-col items-center pt-1.5 border-t border-white/15 w-full">
+                <span
+                  className="font-display font-black text-[18px] tracking-[0.2em]"
+                  style={{ color: won ? '#fff3b0' : refund ? '#bbf7d0' : '#ffb4b4' }}
+                >
+                  {won ? 'YOU WON' : refund ? 'PARTIAL REFUND' : 'BETTER LUCK NEXT TIME'}
+                </span>
+                {(won || refund) && (
+                  <span
+                    className="flex items-center gap-2 font-body font-extrabold text-[36px] leading-tight text-[#ffe27a]"
+                    style={{ textShadow: '0 3px 4px rgba(0,0,0,.8)' }}
+                  >
+                    <Coins size={30} /> {formatINR(r.payout)}
+                  </span>
+                )}
+                {lost && (
+                  <span className="font-body font-bold text-[22px] text-white/80">
+                    −{formatINR(r.stake)}
+                  </span>
+                )}
+                {(won || refund) && (
+                  <span className="font-body font-semibold text-[13px]" style={{ color: won ? '#bdf5c8' : '#ffb4b4' }}>
+                    Net {won ? '+' : '−'}{formatINR(Math.abs(r.net))}
+                  </span>
+                )}
+              </div>
             )}
-            {!won && !refund && <span className="font-body font-bold text-[26px] text-white/80">−{formatINR(r.stake)}</span>}
-            {(won || refund) && <span className="font-body font-semibold text-[14px]" style={{ color: won ? '#bdf5c8' : '#ffb4b4' }}>Net {won ? '+' : '−'}{formatINR(Math.abs(r.net))}</span>}
           </div>
         </motion.div>
       )}

@@ -141,15 +141,8 @@ export function reducer(state, action) {
 
     case 'SERVER_REVEALING': {
       const { dragon, tiger } = action.cards || state.cards || {};
-      let winner = 'dragon';
       const wRaw = normalizeWinner(action.winner, action.win_number);
-      if (wRaw) {
-        winner = wRaw;
-      } else if (state.serverOutcome?.winner) {
-        winner = state.serverOutcome.winner;
-      } else if (dragon && tiger) {
-        winner = compareCards(dragon, tiger);
-      }
+      const winner = wRaw || state.serverOutcome?.winner || (dragon && tiger ? compareCards(dragon, tiger) : null);
 
       return {
         ...state,
@@ -159,40 +152,41 @@ export function reducer(state, action) {
         cards: action.cards || state.cards,
         serverOutcome: {
           winner,
-          win_number: action.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),
-          multiplier: action.multiplier ?? (winner === 'tie' ? 5 : 2),
+          win_number: action.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : winner === 'tie' ? 3 : null),
+          multiplier: action.multiplier ?? (winner ? (winner === 'tie' ? 5 : 2) : null),
         },
         reveal: { dragon: false, tiger: false },
       };
     }
 
     case 'SERVER_WINNER_POPUP': {
-      const { dragon, tiger } = action.cards || state.cards || {};
-      let winner = 'dragon';
-      const wRaw = normalizeWinner(action.winner, action.win_number);
-      if (wRaw) {
-        winner = wRaw;
-      } else if (state.serverOutcome?.winner) {
-        winner = state.serverOutcome.winner;
-      } else if (dragon && tiger) {
-        winner = compareCards(dragon, tiger);
+      // Prevent duplicate executions during the 5s popup window so animations don't stutter
+      if (state.phase === PHASES.RESULT && state.result && String(state.roundNo) === String(action.period || state.roundNo)) {
+        return {
+          ...state,
+          timer: action.time_remaining ?? state.timer,
+          cards: action.cards || state.cards,
+        };
       }
+
+      const { dragon, tiger } = action.cards || state.cards || {};
+      const wRaw = normalizeWinner(action.winner, action.win_number);
+      const winner = wRaw || state.serverOutcome?.winner || (dragon && tiger ? compareCards(dragon, tiger) : null);
+      if (!winner) return state;
 
       const payoutFor = (bets) =>
         winner === 'tie'
           ? bets.tie * 5
           : bets[winner] * 2;
-      const existingResult = state.result;
-      const stake = existingResult?.stake ?? sum(state.bets);
-      const payout = existingResult?.payout ?? payoutFor(state.bets);
-      const alreadySettled = state.phase === PHASES.RESULT;
+      const stake = sum(state.bets);
+      const payout = payoutFor(state.bets);
       return {
         ...state,
         phase: PHASES.RESULT,
         timer: action.time_remaining ?? 5,
         cards: action.cards || state.cards,
         reveal: { dragon: true, tiger: true },
-        balance: alreadySettled ? state.balance : state.balance + payout,
+        balance: state.balance + payout,
         serverOutcome: {
           winner,
           win_number: action.win_number ?? state.serverOutcome?.win_number ?? (winner === 'dragon' ? 1 : winner === 'tiger' ? 2 : 3),

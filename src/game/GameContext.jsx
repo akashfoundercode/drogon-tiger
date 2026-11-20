@@ -265,7 +265,7 @@ export function GameProvider({ children }) {
     const syncFromRound = (res) => {
       if (!res) return;
       hasServer.current = true;
-      const data = res.data || res;
+      const data = res.data && typeof res.data === 'object' ? res.data : res;
 
       // Synchronize admin_force winner from response ("D", "T", "Tie", or "auto")
       const adminForce = res.admin_force ?? data.admin_force;
@@ -275,10 +275,12 @@ export function GameProvider({ children }) {
         forceWinnerRef.current = fw;
       }
 
-      const pStatus = res.phase || res.game_status || res.status || data.phase || data.status;
+      const pStatus = res.phase || res.game_status || data.phase || data.game_status || res.status || data.status;
       const period = res.period || data.period;
       const tRem = res.time_remaining ?? data.time_remaining;
-      const winner = normalizeWinner(res.winner ?? data.winner) || normalizeWinner(res.win_number ?? data.win_number);
+      const responseWinner = res.winner ?? data.winner;
+      const responseWinNumber = res.win_number ?? data.win_number;
+      const winner = normalizeWinner(responseWinner) || normalizeWinner(responseWinNumber);
 
       if (pStatus === 'betting') {
         dispatch({
@@ -301,29 +303,30 @@ export function GameProvider({ children }) {
           period,
           time_remaining: tRem,
         });
-      } else if (pStatus === 'revealing' && (res.cards || data.cards)) {
+      } else if ((pStatus === 'revealing' || pStatus === 'winner_popup' || pStatus === 'result') && (res.cards || data.cards || responseWinner || responseWinNumber)) {
+        const winnerAction = pStatus === 'winner_popup' || pStatus === 'result' ? 'SERVER_WINNER_POPUP' : 'SERVER_REVEALING';
         dispatch({
-          type: 'SERVER_REVEALING',
+          type: winnerAction,
           period,
           time_remaining: tRem,
           cards: res.cards || data.cards,
-          winner: res.winner ?? data.winner ?? adminForce,
-          win_number: res.win_number || data.win_number,
+          winner: responseWinner ?? responseWinNumber,
+          win_number: responseWinNumber,
           multiplier: res.multiplier || data.multiplier,
-        });
-      } else if (pStatus === 'winner_popup' || pStatus === 'result') {
-        dispatch({
-          type: 'SERVER_WINNER_POPUP',
-          period,
-          time_remaining: tRem,
-          cards: res.cards || data.cards,
-          winner: res.winner ?? data.winner ?? adminForce,
-          win_number: res.win_number || data.win_number,
         });
       }
     };
 
     api.getCurrentRound().then(syncFromRound);
+    let pollingCurrentRound = false;
+    const currentRoundPoll = setInterval(() => {
+      if (pollingCurrentRound) return;
+      pollingCurrentRound = true;
+      api.getCurrentRound()
+        .then(syncFromRound)
+        .catch(() => {})
+        .finally(() => { pollingCurrentRound = false; });
+    }, 1000);
 
     // 3. Connect to Sockets using strictly the 4 core events
     const cleanup = connectGameSockets({
@@ -387,7 +390,7 @@ export function GameProvider({ children }) {
         // Phase 3: Active Betting Window
         if (curPhase === 'betting') {
           const s = stateRef.current;
-          const winner = data.winner ?? data.win_number ?? data.admin_force ?? forceWinnerRef.current;
+          const winner = data.winner ?? data.win_number;
           if (s.phase !== PHASES.BETTING || String(s.roundNo) !== String(data.period)) {
             dispatch({
               type: 'SERVER_BETTING',
@@ -416,58 +419,30 @@ export function GameProvider({ children }) {
         // Phase 4: Revealing Cards
         if (curPhase === 'revealing') {
           const s = stateRef.current;
+          const winner = data.winner ?? data.win_number;
           if (s.phase !== PHASES.REVEAL && s.phase !== PHASES.RESULT) {
             dispatch({
               type: 'SERVER_REVEALING',
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
+              winner,
               win_number: data.win_number,
               multiplier: data.multiplier,
             });
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'dragon' }), 1600);
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'tiger' }), 3600);
-            later(() => {
-              if (stateRef.current.phase === PHASES.REVEAL) {
-                dispatch({
-                  type: 'SERVER_WINNER_POPUP',
-                  period: data.period,
-                  cards: data.cards,
-                  winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
-                  win_number: data.win_number,
-                });
-              }
-            }, 4500);
-          } else if (data.winner || data.win_number || data.cards) {
-            dispatch({
-              type: 'SERVER_WINNER_POPUP',
-              period: data.period,
-              time_remaining: data.time_remaining,
-              cards: data.cards,
-              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
-              win_number: data.win_number,
-            });
           } else {
             dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
           return;
         }
 
-        // Phase 5: Winner Pop up / Result
+        // Phase 5: Winner Pop up / Result (Dispatched ONCE per round, ticks thereafter)
         if (curPhase === 'winner_popup' || curPhase === 'result') {
           const s = stateRef.current;
-          const resultWinner = data.winner ?? data.win_number ?? data.admin_force ?? forceWinnerRef.current;
+          const resultWinner = data.winner ?? data.win_number;
           if (s.phase !== PHASES.RESULT) {
-            dispatch({
-              type: 'SERVER_WINNER_POPUP',
-              period: data.period,
-              time_remaining: data.time_remaining,
-              cards: data.cards,
-              winner: resultWinner,
-              win_number: data.win_number,
-            });
-          } else if (resultWinner || data.cards) {
             dispatch({
               type: 'SERVER_WINNER_POPUP',
               period: data.period,
@@ -489,6 +464,7 @@ export function GameProvider({ children }) {
         if (!data) return;
         const s = stateRef.current;
         const curPhase = data.status || data.phase;
+        const resultWinner = data.winner ?? data.win_number;
 
         if (curPhase === 'winner_popup' || curPhase === 'result') {
           if (s.phase !== PHASES.RESULT) {
@@ -497,18 +473,11 @@ export function GameProvider({ children }) {
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
+              winner: resultWinner,
               win_number: data.win_number,
             });
-          } else if (data.winner || data.win_number || data.cards) {
-            dispatch({
-              type: 'SERVER_WINNER_POPUP',
-              period: data.period,
-              time_remaining: data.time_remaining,
-              cards: data.cards,
-              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
-              win_number: data.win_number,
-            });
+          } else {
+            dispatch({ type: 'SERVER_TICK', time_remaining: data.time_remaining });
           }
         } else if (curPhase === 'revealing' || data.cards) {
           if (s.phase !== PHASES.REVEAL && s.phase !== PHASES.RESULT) {
@@ -517,23 +486,12 @@ export function GameProvider({ children }) {
               period: data.period,
               time_remaining: data.time_remaining,
               cards: data.cards,
-              winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
+              winner: resultWinner,
               win_number: data.win_number,
               multiplier: data.multiplier,
             });
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'dragon' }), 1600);
             later(() => dispatch({ type: 'REVEAL_CARD', who: 'tiger' }), 3600);
-            later(() => {
-              if (stateRef.current.phase === PHASES.REVEAL) {
-                dispatch({
-                  type: 'SERVER_WINNER_POPUP',
-                  period: data.period,
-                  cards: data.cards,
-                  winner: data.winner ?? data.win_number ?? forceWinnerRef.current,
-                  win_number: data.win_number,
-                });
-              }
-            }, 4500);
           }
         }
 
@@ -566,7 +524,10 @@ export function GameProvider({ children }) {
       },
     });
 
-    return cleanup;
+    return () => {
+      clearInterval(currentRoundPoll);
+      cleanup();
+    };
   }, [later]);
 
   /* ----------------------------- round state machine fallback ---------------------------- */

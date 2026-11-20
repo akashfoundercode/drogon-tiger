@@ -422,14 +422,7 @@ function MyResult() {
 
   const rawWinner =
     r?.winner ||
-    state.serverOutcome?.winner ||
-    (state.cards?.dragon && state.cards?.tiger
-      ? (state.cards.dragon.rank > state.cards.tiger.rank
-          ? 'dragon'
-          : state.cards.tiger.rank > state.cards.dragon.rank
-          ? 'tiger'
-          : 'tie')
-      : null);
+    state.serverOutcome?.winner;
 
   const winner =
     rawWinner === 'D' || rawWinner === 'dragon' || rawWinner === 1 || rawWinner === '1'
@@ -453,10 +446,10 @@ function MyResult() {
           key={`res${state.roundNo}`}
           className="absolute left-0 right-0 flex justify-center pointer-events-none select-none"
           style={{ top: 400, zIndex: 160 }}
-          initial={{ y: 40, opacity: 0, scale: 0.6 }}
+          initial={{ y: 30, opacity: 0, scale: 0.85 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: -30, opacity: 0, scale: 0.8 }}
-          transition={{ delay: 0.4, type: 'spring', stiffness: 260, damping: 18 }}
+          exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2, ease: 'easeIn' } }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
         >
           <div
             className="flex flex-col items-center rounded-3xl px-10 py-3.5"

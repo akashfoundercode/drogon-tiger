@@ -76,14 +76,7 @@ export default function WinnerAnimation() {
   const isResult = state.phase === PHASES.RESULT;
   const rawWinner =
     state.result?.winner ||
-    state.serverOutcome?.winner ||
-    (state.cards?.dragon && state.cards?.tiger
-      ? (state.cards.dragon.rank > state.cards.tiger.rank
-          ? 'dragon'
-          : state.cards.tiger.rank > state.cards.dragon.rank
-          ? 'tiger'
-          : 'tie')
-      : null);
+    state.serverOutcome?.winner;
 
   const isTigerWin =
     isResult &&
@@ -162,7 +155,7 @@ export default function WinnerAnimation() {
             x: [0, -9, 9, -6, 6, -3, 0],
             y: [0, 7, -7, 4, -4, 2, 0],
           }}
-          exit={{ opacity: 0, transition: { duration: 0.5 } }}
+          exit={{ opacity: 0, transition: { duration: 0.25 } }}
           transition={{
             opacity: { duration: 0.2 },
             x: { duration: 0.42, ease: 'easeOut' },
@@ -417,7 +410,7 @@ export default function WinnerAnimation() {
             x: [0, 9, -9, 6, -6, 3, 0],
             y: [0, 7, -7, 4, -4, 2, 0],
           }}
-          exit={{ opacity: 0, transition: { duration: 0.5 } }}
+          exit={{ opacity: 0, transition: { duration: 0.25 } }}
           transition={{
             opacity: { duration: 0.2 },
             x: { duration: 0.42, ease: 'easeOut' },

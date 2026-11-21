@@ -77,6 +77,7 @@ export function reducer(state, action) {
     case 'SERVER_IDLE': {
       const stake = sum(state.bets);
       const winner = normalizeWinner(action.winner, action.win_number);
+      const roundSeed = action.period || state.roundNo;
       return {
         ...state,
         phase: PHASES.VERSUS,
@@ -90,6 +91,7 @@ export function reducer(state, action) {
         cards: action.cards || state.cards || { dragon: null, tiger: null },
         reveal: { dragon: false, tiger: false },
         result: null,
+        bots: createBots(roundSeed),
         serverOutcome: winner
           ? {
               winner,

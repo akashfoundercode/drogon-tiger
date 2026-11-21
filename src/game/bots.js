@@ -40,23 +40,33 @@ export function makeAvatar(r) {
   };
 }
 
-function randomName(r, len = 10) {
-  let s = '';
-  for (let i = 0; i < len; i++) s += ALNUM[Math.floor(r() * ALNUM.length)];
-  return s;
-}
+export const INDIAN_NAMES = [
+  'Rahul Sharma', 'Amit Kumar', 'Rohit Verma', 'Vikas Patel', 'Deepak Singh',
+  'Priya Sharma', 'Sneha Gupta', 'Pooja Yadav', 'Neha Singh', 'Anjali Roy',
+  'Ankit Tiwari', 'Manoj Joshi', 'Suresh Reddy', 'Sachin Mehra', 'Karan Malhotra',
+  'Aditya Rao', 'Rajesh Nair', 'Sunita Rani', 'Sonu Rajput', 'Rakesh Paul',
+  'Ajay Chauhan', 'Kavita Mishra', 'Mohit Jain', 'Gaurav Soni', 'Preeti Das',
+  'Sanjay Sethi', 'Dinesh Rawat', 'Naveen Gill', 'Manish Arya', 'Ritu Bhatia',
+  'Vishal Chawla', 'Alok Pandey', 'Shweta Dixit', 'Pankaj Dubey', 'Harish Vyas'
+];
 
-export function createBots() {
-  const r = rng(20260617);
+export function createBots(seed = 1) {
+  const r = rng(20260617 + Math.abs(Number(seed) || 1) * 31);
   const bots = [];
+  const offset = (Math.abs(Number(seed) || 1) * 7) % INDIAN_NAMES.length;
+
   for (let i = 0; i < 20; i++) {
     const avatar = makeAvatar(r);
     if (i % 10 === 0) avatar.hairStyle = 1;
+    // Realistic casino balances between ₹1,200 and ₹18,500
+    const realisticBalance = Math.round((1200 + r() * 16800) / 50) * 50;
+    const nameIndex = (offset + i) % INDIAN_NAMES.length;
+
     bots.push({
       id: `bot${i}`,
       sidebar: i < 10 ? 'left' : 'right',
-      name: randomName(r),
-      balance: Math.round((60000 + r() * 840000) / 10) * 10,
+      name: INDIAN_NAMES[nameIndex],
+      balance: realisticBalance,
       bet: zero(),
       avatar,
     });
@@ -89,7 +99,7 @@ const weighted = (pairs) => {
 };
 
 export function pickBotBet(bots, weightsOverride) {
-  const eligible = bots.filter((b) => b.balance >= 10000);
+  const eligible = bots.filter((b) => b.balance >= 50);
   if (!eligible.length) return null;
   const bot = eligible[Math.floor(Math.random() * eligible.length)];
   const side = weighted(

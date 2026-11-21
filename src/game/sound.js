@@ -1,36 +1,93 @@
 import dragonRoarMp3 from '../assets/sound/drogon_roar.mp3';
 import dragonFlyMp3 from '../assets/sound/drogonflying.mp3';
 import lionRoarMp3 from '../assets/sound/lionroar.mp3';
+import mouseClickMp3 from '../assets/sound/universfield-mouse-click-351398.mp3';
+import coinThrowMp3 from '../assets/sound/coin_throw.mp3';
+import bgMusicMp3 from '../assets/sound/d_t_bg_music.mp3';
 
 // WebAudio synth + HQ audio elements
 let ctx = null;
 let enabled = true;
 let volume = 0.7;
 let lastChip = 0;
+let lastClick = 0;
 
 let dragonRoarAudio = null;
 let dragonFlyAudio = null;
 let lionAudio = null;
+let mouseClickAudio = null;
+let coinThrowAudio = null;
+let bgAudio = null;
+
+let bgBaseVolume = 0.35;
+let isDucked = false;
+let duckTimeout = null;
+
+function applyBgVolume(targetVol) {
+  if (!bgAudio) return;
+  bgAudio.volume = Math.max(0, Math.min(1, targetVol * volume));
+}
+
+export function duckBackground(durationMs = 2500, duckLevel = 0.08) {
+  if (!bgAudio || !enabled) return;
+  isDucked = true;
+  if (duckTimeout) clearTimeout(duckTimeout);
+  applyBgVolume(duckLevel);
+
+  duckTimeout = setTimeout(() => {
+    isDucked = false;
+    if (enabled) {
+      applyBgVolume(bgBaseVolume);
+    }
+  }, durationMs);
+}
+
+export function startBgMusic() {
+  if (!bgAudio || !enabled) return;
+  try {
+    applyBgVolume(isDucked ? 0.08 : bgBaseVolume);
+    const p = bgAudio.play();
+    if (p && typeof p.then === 'function') {
+      p.catch(() => {});
+    }
+  } catch {}
+}
+
+export function stopBgMusic() {
+  if (bgAudio) {
+    try {
+      bgAudio.pause();
+    } catch {}
+  }
+}
 
 if (typeof window !== 'undefined') {
   try {
     dragonRoarAudio = new Audio(dragonRoarMp3);
     dragonRoarAudio.preload = 'auto';
-  } catch {
-    // ignore
-  }
+  } catch {}
   try {
     dragonFlyAudio = new Audio(dragonFlyMp3);
     dragonFlyAudio.preload = 'auto';
-  } catch {
-    // ignore
-  }
+  } catch {}
   try {
     lionAudio = new Audio(lionRoarMp3);
     lionAudio.preload = 'auto';
-  } catch {
-    // ignore
-  }
+  } catch {}
+  try {
+    mouseClickAudio = new Audio(mouseClickMp3);
+    mouseClickAudio.preload = 'auto';
+  } catch {}
+  try {
+    coinThrowAudio = new Audio(coinThrowMp3);
+    coinThrowAudio.preload = 'auto';
+  } catch {}
+  try {
+    bgAudio = new Audio(bgMusicMp3);
+    bgAudio.preload = 'auto';
+    bgAudio.loop = true;
+    bgAudio.volume = bgBaseVolume * volume;
+  } catch {}
 }
 
 // Pre-decoded AudioBuffers for Web Audio API (ensures 100% reliable playback on mobile devices)
@@ -38,6 +95,8 @@ const buffers = {
   dragonFly: null,
   dragonRoar: null,
   lionRoar: null,
+  mouseClick: null,
+  coinThrow: null,
 };
 
 let buffersLoading = false;
@@ -54,7 +113,18 @@ function loadBuffers() {
       c.decodeAudioData(
         arrayBuf,
         (decoded) => {
-          buffers[key] = decoded;
+          if (key === 'mouseClick') {
+            // universfield-mouse-click MP3 contains 2 clicks (press at 0.13s and release at 0.25s).
+            // Trim to strictly 0.19s to guarantee a single crisp click!
+            const trimFrames = Math.min(decoded.length, Math.floor(decoded.sampleRate * 0.19));
+            const singleBuf = c.createBuffer(decoded.numberOfChannels, trimFrames, decoded.sampleRate);
+            for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+              singleBuf.copyToChannel(decoded.getChannelData(ch).subarray(0, trimFrames), ch);
+            }
+            buffers[key] = singleBuf;
+          } else {
+            buffers[key] = decoded;
+          }
         },
         (err) => {
           console.warn('Decode error for', key, err);
@@ -68,6 +138,8 @@ function loadBuffers() {
   fetchAndDecode(dragonFlyMp3, 'dragonFly');
   fetchAndDecode(dragonRoarMp3, 'dragonRoar');
   fetchAndDecode(lionRoarMp3, 'lionRoar');
+  fetchAndDecode(mouseClickMp3, 'mouseClick');
+  fetchAndDecode(coinThrowMp3, 'coinThrow');
 }
 
 // Mobile Audio Auto-unlocker: unlocks Web Audio & HTML5 Audio on the first user interaction
@@ -91,14 +163,16 @@ function unlockAudio() {
 
   // Pre-unlock HTML5 audio elements on mobile
   if (!unlocked) {
-    [dragonFlyAudio, dragonRoarAudio, lionAudio].forEach((a) => {
+    [dragonFlyAudio, dragonRoarAudio, lionAudio, mouseClickAudio, coinThrowAudio, bgAudio].forEach((a) => {
       if (a) {
         try {
           const p = a.play();
           if (p && typeof p.then === 'function') {
             p.then(() => {
-              a.pause();
-              a.currentTime = 0;
+              if (a !== bgAudio) {
+                a.pause();
+                a.currentTime = 0;
+              }
             }).catch(() => {});
           }
         } catch {}
@@ -107,6 +181,7 @@ function unlockAudio() {
   }
 
   loadBuffers();
+  startBgMusic();
   unlocked = true;
 }
 
@@ -115,6 +190,18 @@ if (typeof window !== 'undefined') {
     window.addEventListener(evt, unlockAudio, { capture: true, passive: true });
     document.addEventListener(evt, unlockAudio, { capture: true, passive: true });
   });
+
+  const onPointerDown = (e) => {
+    const el = e.target;
+    if (!el) return;
+    const isInteractive = el.closest(
+      'button, [role="button"], a, input, select, [data-panel], [data-chip-src], .cursor-pointer'
+    );
+    if (isInteractive) {
+      sfx.click();
+    }
+  };
+  window.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(loadBuffers, 100);
@@ -238,51 +325,137 @@ export const sfx = {
     if (!v) {
       this.stopTigerAudio();
       this.stopDragonAudio();
+      stopBgMusic();
+    } else {
+      startBgMusic();
     }
   },
   setVolume(v) {
     volume = v;
     const clamped = Math.max(0, Math.min(1, v));
-    [dragonRoarAudio, dragonFlyAudio, lionAudio].forEach((a) => {
+    [dragonRoarAudio, dragonFlyAudio, lionAudio, mouseClickAudio, coinThrowAudio].forEach((a) => {
       if (a) {
         try {
           a.volume = clamped;
         } catch {}
       }
     });
+    if (bgAudio) {
+      applyBgVolume(isDucked ? 0.08 : bgBaseVolume);
+    }
   },
-  chip() {
+  duck(dur = 2500, level = 0.08) {
+    duckBackground(dur, level);
+  },
+  click() {
+    if (!enabled) return;
     const now = performance.now();
-    if (now - lastChip < 45) return;
+    if (now - lastClick < 160) return;
+    lastClick = now;
+
+    const c = audio();
+    if (c && buffers.mouseClick) {
+      try {
+        if (c.state === 'suspended') {
+          c.resume().catch(() => {});
+        }
+        const src = c.createBufferSource();
+        src.buffer = buffers.mouseClick;
+        const gain = c.createGain();
+        const effectiveVol = Math.max(0, Math.min(1, 0.95 * volume));
+        gain.gain.setValueAtTime(effectiveVol, c.currentTime);
+        src.connect(gain);
+        gain.connect(c.destination);
+        src.start(0);
+        return;
+      } catch {}
+    }
+
+    try {
+      if (mouseClickAudio) {
+        const clone = mouseClickAudio.cloneNode();
+        clone.volume = Math.max(0, Math.min(1, volume));
+        clone.currentTime = 0;
+        clone.play().catch(() => {});
+        setTimeout(() => {
+          try {
+            clone.pause();
+            clone.currentTime = 0;
+          } catch {}
+        }, 190);
+      }
+    } catch {}
+  },
+  // Coin Throw sound – plays coin_throw.mp3 alongside background music (does NOT duck BGM!)
+  chip() {
+    if (!enabled) return;
+    const now = performance.now();
+    if (now - lastChip < 35) return;
     lastChip = now;
-    tone({ freq: 1700 + Math.random() * 500, type: 'triangle', dur: 0.07, vol: 0.09 });
-    tone({ freq: 2700, type: 'sine', dur: 0.06, vol: 0.04, delay: 0.015 });
+
+    // 1. Zero-latency polyphonic playback via Web Audio API Buffer
+    const c = audio();
+    if (c && buffers.coinThrow) {
+      try {
+        if (c.state === 'suspended') {
+          c.resume().catch(() => {});
+        }
+        const src = c.createBufferSource();
+        src.buffer = buffers.coinThrow;
+        // Natural micro pitch variation (0.94 - 1.06) so rapid coin throws sound lively
+        src.playbackRate.value = 0.94 + Math.random() * 0.12;
+
+        const gain = c.createGain();
+        const effectiveVol = Math.max(0, Math.min(1, 0.88 * volume));
+        gain.gain.setValueAtTime(effectiveVol, c.currentTime);
+        src.connect(gain);
+        gain.connect(c.destination);
+        src.start(0);
+        return;
+      } catch {}
+    }
+
+    // 2. HTML5 Audio clone fallback
+    try {
+      if (coinThrowAudio) {
+        const clone = coinThrowAudio.cloneNode();
+        clone.volume = Math.max(0, Math.min(1, 0.88 * volume));
+        clone.play().catch(() => {});
+      }
+    } catch {}
+  },
+  coinThrow() {
+    this.chip();
   },
   select() {
-    tone({ freq: 1100, type: 'triangle', dur: 0.04, vol: 0.08 });
-    tone({ freq: 450, type: 'sine', dur: 0.06, vol: 0.06, slide: -150 });
+    this.click();
   },
   tick() {
     tone({ freq: 1200, type: 'square', dur: 0.05, vol: 0.04 });
   },
   open() {
+    duckBackground(1500, 0.14);
     [523, 659, 784].forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.22, vol: 0.08, delay: i * 0.08 }));
   },
   lock() {
+    duckBackground(1500, 0.12);
     tone({ freq: 140, type: 'sawtooth', dur: 0.35, vol: 0.14, slide: -80 });
     noise({ dur: 0.2, vol: 0.1, hp: 600 });
   },
   flip() {
+    duckBackground(1200, 0.14);
     noise({ dur: 0.18, vol: 0.09, hp: 2500 });
     tone({ freq: 320, type: 'triangle', dur: 0.12, vol: 0.05, slide: 200 });
   },
   win() {
+    duckBackground(2800, 0.08);
     [523, 659, 784, 1047, 1319].forEach((f, i) =>
       tone({ freq: f, type: 'triangle', dur: 0.35, vol: 0.09, delay: i * 0.09 })
     );
   },
   tigerImpact() {
     if (!enabled) return;
+    duckBackground(2000, 0.08);
     // 0. Violent wall break / shatter impact crunch at t=0
     noise({ dur: 0.38, vol: 0.35, hp: 350 });
     tone({ freq: 65, type: 'sawtooth', dur: 0.5, vol: 0.4, slide: -35 });
@@ -294,6 +467,7 @@ export const sfx = {
   },
   tigerRoar() {
     if (!enabled) return;
+    duckBackground(3800, 0.06);
 
     // 1. Play via Web Audio API Buffer (bypasses mobile browser autoplay restrictions!)
     playAudioBuffer('lionRoar', 1);
@@ -357,6 +531,7 @@ export const sfx = {
   },
   dragonImpact() {
     if (!enabled) return;
+    duckBackground(2000, 0.08);
     // Breakthrough wall crack / thunder impact at t=0
     noise({ dur: 0.42, vol: 0.38, hp: 280 });
     tone({ freq: 55, type: 'sawtooth', dur: 0.6, vol: 0.45, slide: -30 });
@@ -366,6 +541,7 @@ export const sfx = {
   },
   dragonFly() {
     if (!enabled) return;
+    duckBackground(3800, 0.06);
 
     // 1. Play via Web Audio API Buffer (bypasses mobile browser autoplay restrictions!)
     playAudioBuffer('dragonFly', 1);
@@ -410,6 +586,7 @@ export const sfx = {
   },
   dragonRoar() {
     if (!enabled) return;
+    duckBackground(3800, 0.06);
 
     // 1. Stop fly audio
     stopAudioBuffer('dragonFly');

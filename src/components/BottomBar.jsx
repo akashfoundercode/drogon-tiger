@@ -212,10 +212,10 @@ export default function BottomBar() {
               transition={{ type: 'spring', stiffness: 500, damping: 25 }}
               className="relative w-full h-full rounded-full outline-none select-none"
               style={{
-                opacity: unaffordable ? 0.45 : 1,
+                opacity: 1,
                 filter: selected
-                  ? 'drop-shadow(0 0 10px rgba(255,214,90,0.85))'
-                  : undefined,
+                  ? 'drop-shadow(0 0 12px rgba(255,226,122,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.85))'
+                  : 'drop-shadow(0 3px 8px rgba(0,0,0,0.7))',
               }}
             >
               {selected && (

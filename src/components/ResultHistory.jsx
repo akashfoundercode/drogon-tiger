@@ -239,10 +239,10 @@ export default function ResultHistory() {
       <div
         className="absolute pointer-events-none select-none transition-opacity duration-300"
         style={{
-          left: 360,
-          top: 8,
-          width: 450,
-          height: 240,
+          left: 400,
+          top: 56,
+          width: 360,
+          height: 192,
           zIndex: 25,
           opacity: state.phase === 'IDLE' ? 0 : 1,
         }}
@@ -266,10 +266,10 @@ export default function ResultHistory() {
       <div
         className="absolute pointer-events-none select-none transition-opacity duration-300"
         style={{
-          left: 1000,
-          top: -48,
-          width: 610,
-          height: 345,
+          left: 1070,
+          top: 22,
+          width: 475,
+          height: 268,
           zIndex: 25,
           opacity: state.phase === 'IDLE' ? 0 : 1,
         }}

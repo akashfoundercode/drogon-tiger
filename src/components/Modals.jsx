@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   Eye,
@@ -25,8 +25,8 @@ import { formatINR } from '../game/format.js';
 function Modal({ title, onClose, children, width = 560 }) {
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center"
-      style={{ zIndex: 160, background: 'rgba(5,2,12,.78)', backdropFilter: 'blur(5px)' }}
+      className="absolute inset-0 flex items-center justify-center pointer-events-auto"
+      style={{ zIndex: 9999, background: 'rgba(5,2,12,.82)', backdropFilter: 'blur(8px)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -40,12 +40,13 @@ function Modal({ title, onClose, children, width = 560 }) {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-        className="relative rounded-3xl p-[4px]"
+        className="relative rounded-3xl p-[4px] pointer-events-auto shadow-2xl"
         style={{
+          zIndex: 10000,
           width,
           maxWidth: '96vw',
           background: 'linear-gradient(160deg,#fff1a8,#b8801a 45%,#5c3b06)',
-          boxShadow: '0 20px 60px rgba(0,0,0,.85), 0 0 40px rgba(245,197,66,.35)',
+          boxShadow: '0 20px 60px rgba(0,0,0,.95), 0 0 50px rgba(245,197,66,.45)',
         }}
       >
         <div
@@ -849,5 +850,23 @@ export function WalletModal({ onClose }) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+/* ========================================================================= */
+/* 🪟 TOP-LEVEL MODALS CONTAINER (Rendered at root of App canvas)            */
+/* ========================================================================= */
+export function ModalsContainer() {
+  const { modal, setModal } = useGame();
+
+  return (
+    <AnimatePresence>
+      {modal === 'login' && <LoginModal key="login" onClose={() => setModal(null)} />}
+      {modal === 'profile' && <ProfileModal key="profile" onClose={() => setModal(null)} />}
+      {modal === 'wallet' && <WalletModal key="wallet" onClose={() => setModal(null)} />}
+      {modal === 'stats' && <StatsModal key="stats" onClose={() => setModal(null)} />}
+      {modal === 'help' && <HelpModal key="help" onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal key="settings" onClose={() => setModal(null)} />}
+    </AnimatePresence>
   );
 }

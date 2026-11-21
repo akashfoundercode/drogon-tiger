@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Info, RotateCw, Maximize } from 'lucide-react';
 import { GameProvider } from './game/GameContext.jsx';
 import { useScale } from './hooks/useScale.js';
@@ -15,6 +15,26 @@ import FlyingChips from './components/FlyingChips.jsx';
 import SettlementAnimation from './components/SettlementAnimation.jsx';
 import PhaseOverlay from './components/PhaseOverlay.jsx';
 import WinnerAnimation from './components/WinnerAnimation.jsx';
+import { ModalsContainer } from './components/Modals.jsx';
+
+import tigerJumpGif from './assets/winning/tiger_jump_HD_1280x720_3.4s.gif';
+import dragonJumpGif from './assets/winning/dragon_jump_winning.gif';
+import tigerGif from './assets/gif/tiger.gif';
+import dragonLogoGif from './assets/gif/dragon_logo.gif';
+import dragonFireGif from './assets/gif/dragon_blue_fire_transparent.gif';
+import tigerFireGif from './assets/gif/tiger_HD_1280x720_1.75s.gif';
+
+// Pre-cache and pre-decode all animated GIFs ahead of time for 100% lag-free instant playback
+if (typeof window !== 'undefined') {
+  const PRELOAD_GIFS = [tigerJumpGif, dragonJumpGif, tigerGif, dragonLogoGif, dragonFireGif, tigerFireGif];
+  PRELOAD_GIFS.forEach((src) => {
+    const img = new Image();
+    img.src = src;
+    if (typeof img.decode === 'function') {
+      img.decode().catch(() => {});
+    }
+  });
+}
 
 function Game() {
   return (
@@ -41,6 +61,7 @@ function Game() {
       <PhaseOverlay />
       <FlyingChips />
       <SettlementAnimation />
+      <ModalsContainer />
     </>
   );
 }

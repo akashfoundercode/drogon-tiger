@@ -27,7 +27,7 @@ const BOX_21_Y = 468;
 // Positioned so the standing dragon is centered dead-center over Section 21 (x: 576)
 // and lands right on the table felt (y: 586) above the bottom bar
 const DRAGON_GIF_LEFT = 120;
-const DRAGON_GIF_TOP = 72;
+const DRAGON_GIF_TOP = 110;
 const DRAGON_GIF_WIDTH = 922;
 const DRAGON_GIF_HEIGHT = 518;
 
@@ -72,7 +72,7 @@ const DRAGON_WALL_SHARDS = [
 ];
 
 export default function WinnerAnimation() {
-  const { state } = useGame();
+  const { state, modal } = useGame();
   const isResult = state.phase === PHASES.RESULT;
   const rawWinner =
     state.result?.winner ||
@@ -107,37 +107,39 @@ export default function WinnerAnimation() {
     return undefined;
   }, [isDragonWin, state.roundNo]);
 
-  // Tiger fiery embers
+  // Tiger fiery embers (streamlined for smooth mobile 60fps)
   const tigerEmbers = useMemo(() => {
-    return Array.from({ length: 36 }, (_, i) => {
-      const angle = (i / 36) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-      const dist = 220 + Math.random() * 280;
+    return Array.from({ length: 12 }, (_, i) => {
+      const angle = (i / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const dist = 180 + Math.random() * 200;
       return {
         id: i,
         dx: Math.cos(angle) * dist,
-        dy: Math.sin(angle) * dist * 0.75 - 30,
-        size: 5 + Math.random() * 11,
-        delay: Math.random() * 0.25,
+        dy: Math.sin(angle) * dist * 0.75 - 20,
+        size: 5 + Math.random() * 7,
+        delay: Math.random() * 0.2,
         color: i % 3 === 0 ? '#ffea79' : i % 3 === 1 ? '#ff7a00' : '#e53935',
       };
     });
   }, [state.roundNo]);
 
-  // Dragon electric cyan/azure embers
+  // Dragon electric cyan/azure embers (streamlined for smooth mobile 60fps)
   const dragonEmbers = useMemo(() => {
-    return Array.from({ length: 36 }, (_, i) => {
-      const angle = (i / 36) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-      const dist = 220 + Math.random() * 280;
+    return Array.from({ length: 12 }, (_, i) => {
+      const angle = (i / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const dist = 180 + Math.random() * 200;
       return {
         id: i,
         dx: Math.cos(angle) * dist,
-        dy: Math.sin(angle) * dist * 0.75 - 30,
-        size: 5 + Math.random() * 11,
-        delay: Math.random() * 0.25,
+        dy: Math.sin(angle) * dist * 0.75 - 20,
+        size: 5 + Math.random() * 7,
+        delay: Math.random() * 0.2,
         color: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#00e5ff' : '#0077ff',
       };
     });
   }, [state.roundNo]);
+
+  if (modal) return null;
 
   return (
     <AnimatePresence>
@@ -148,19 +150,11 @@ export default function WinnerAnimation() {
         <motion.div
           key={`tiger-win-${state.roundNo}`}
           className="absolute inset-0 pointer-events-none select-none overflow-hidden"
-          style={{ zIndex: 145 }}
+          style={{ zIndex: 145, transform: 'translateZ(0)' }}
           initial={{ opacity: 0 }}
-          animate={{
-            opacity: 1,
-            x: [0, -9, 9, -6, 6, -3, 0],
-            y: [0, 7, -7, 4, -4, 2, 0],
-          }}
+          animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.25 } }}
-          transition={{
-            opacity: { duration: 0.2 },
-            x: { duration: 0.42, ease: 'easeOut' },
-            y: { duration: 0.42, ease: 'easeOut' },
-          }}
+          transition={{ opacity: { duration: 0.15 } }}
         >
           {/* 1. Dramatic Flash of light from behind the wall break */}
           <motion.div
@@ -306,7 +300,7 @@ export default function WinnerAnimation() {
                   stroke="#ffe27a"
                   strokeWidth="1.5"
                   style={{
-                    filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(255,100,0,0.8))',
+                    filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.85))',
                   }}
                 />
               </motion.svg>
@@ -341,19 +335,26 @@ export default function WinnerAnimation() {
               width: 1280,
               height: 720,
               transformOrigin: '1130px 428px',
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
             }}
             initial={{ opacity: 0, scale: 0.72 }}
             animate={{ opacity: 1, scale: 0.72 }}
-            exit={{ opacity: 0, scale: 0.72, transition: { duration: 0.4 } }}
+            exit={{ opacity: 0, scale: 0.72, transition: { duration: 0.3 } }}
             transition={{ opacity: { duration: 0.15 } }}
           >
             <img
               key={`tiger-${state.roundNo}`}
               src={tigerJumpGif}
               alt="Tiger Breakthrough Winning"
+              loading="eager"
+              decoding="async"
               className="w-full h-full object-contain pointer-events-none select-none"
               style={{
-                filter: 'drop-shadow(0 0 30px rgba(255,140,20,0.85)) drop-shadow(0 14px 26px rgba(0,0,0,0.95))',
+                transform: 'translateZ(0)',
+                willChange: 'transform',
+                filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.65))',
               }}
             />
           </motion.div>
@@ -403,19 +404,11 @@ export default function WinnerAnimation() {
         <motion.div
           key={`dragon-win-${state.roundNo}`}
           className="absolute inset-0 pointer-events-none select-none overflow-hidden"
-          style={{ zIndex: 145 }}
+          style={{ zIndex: 145, transform: 'translateZ(0)' }}
           initial={{ opacity: 0 }}
-          animate={{
-            opacity: 1,
-            x: [0, 9, -9, 6, -6, 3, 0],
-            y: [0, 7, -7, 4, -4, 2, 0],
-          }}
+          animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.25 } }}
-          transition={{
-            opacity: { duration: 0.2 },
-            x: { duration: 0.42, ease: 'easeOut' },
-            y: { duration: 0.42, ease: 'easeOut' },
-          }}
+          transition={{ opacity: { duration: 0.15 } }}
         >
           {/* 1. Dramatic Flash of electric cyan / deep blue light behind Section 21 */}
           <motion.div
@@ -561,7 +554,7 @@ export default function WinnerAnimation() {
                   stroke="#00e5ff"
                   strokeWidth="1.5"
                   style={{
-                    filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(0,229,255,0.8))',
+                    filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.85))',
                   }}
                 />
               </motion.svg>
@@ -596,28 +589,35 @@ export default function WinnerAnimation() {
               width: DRAGON_GIF_WIDTH,
               height: DRAGON_GIF_HEIGHT,
               transformOrigin: '50% 88%',
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
             }}
             initial={{ opacity: 0, scale: 0.74 }}
             animate={{ opacity: 1, scale: 0.74 }}
-            exit={{ opacity: 0, scale: 0.74, transition: { duration: 0.4 } }}
+            exit={{ opacity: 0, scale: 0.74, transition: { duration: 0.3 } }}
             transition={{ opacity: { duration: 0.15 } }}
           >
             <img
               key={`fly-${state.roundNo}`}
               src={dragonJumpGif}
               alt="Dragon Breakthrough Winning"
+              loading="eager"
+              decoding="async"
               className="w-full h-full object-contain pointer-events-none select-none"
               style={{
-                filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.85))',
+                transform: 'translateZ(0)',
+                willChange: 'transform',
+                filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.65))',
               }}
             />
           </motion.div>
 
-          {/* 7. "DRAGON WINS" Crown Banner - Positioned to the right side of dragon, completely clear of the GIF */}
+          {/* 7. "DRAGON WINS" Crown Banner - Exactly mirrors Tiger Wins banner over Section 21 */}
           <motion.div
             className="absolute pointer-events-none"
             style={{
-              left: 1260,
+              left: BOX_21_X,
               top: 235,
               transform: 'translateX(-50%)',
             }}
@@ -627,15 +627,15 @@ export default function WinnerAnimation() {
             transition={{ delay: 0.22, type: 'spring', stiffness: 380, damping: 18 }}
           >
             <div
-              className="relative px-9 py-2.5 rounded-full flex items-center gap-3"
+              className="relative px-11 py-2.5 rounded-full flex items-center gap-3"
               style={{
                 background: 'linear-gradient(180deg, rgba(3,25,75,0.96), rgba(1,10,35,0.96))',
                 border: '3px solid #00e5ff',
-                boxShadow: '0 0 35px rgba(0,229,255,0.85), 0 10px 25px rgba(0,0,0,0.85)',
+                boxShadow: '0 0 45px rgba(0,229,255,0.9), 0 10px 25px rgba(0,0,0,0.85)',
               }}
             >
               <span
-                className="font-display font-black text-[38px] tracking-widest leading-none select-none italic"
+                className="font-display font-black text-[42px] tracking-widest leading-none select-none italic"
                 style={{
                   background: 'linear-gradient(180deg, #ffffff 0%, #b3f0ff 22%, #00e5ff 52%, #0077ff 82%, #002b80 100%)',
                   WebkitBackgroundClip: 'text',

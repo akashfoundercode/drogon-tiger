@@ -13,7 +13,7 @@ import dragonFireGif from '../assets/gif/dragon_blue_fire_transparent.gif';
 const THEMES = {
   dragon: {
     w: 343,
-    h: 284,
+    h: 228,
     glow: '#3b9cff',
     title: 'linear-gradient(180deg,#f2fcff,#7fd2ff 55%,#2f86ff)',
     pill: 'rgba(4,14,62,.75)',
@@ -22,7 +22,7 @@ const THEMES = {
   },
   tie: {
     w: 334,
-    h: 284,
+    h: 228,
     glow: '#2ee66a',
     title: 'linear-gradient(180deg,#fff7c2,#f5c542 55%,#b8801a)',
     pill: 'rgba(3,40,18,.75)',
@@ -31,7 +31,7 @@ const THEMES = {
   },
   tiger: {
     w: 343,
-    h: 284,
+    h: 228,
     glow: '#ff6a1a',
     title: 'linear-gradient(180deg,#fff3b0,#ffa31a 55%,#e3350d)',
     pill: 'rgba(62,4,4,.75)',
@@ -155,13 +155,17 @@ function BetPanel({ side }) {
               <span className="text-[10px] font-body font-semibold text-white/70 -mt-0.5">Tie returns 50% on D/T</span>
             </div>
           ) : side === 'dragon' ? (
-            <div className="flex items-center gap-2 -mt-4">
+            <div className="flex items-center gap-2 -mt-5">
               <img
                 src={dragonLogoGif}
                 alt="Dragon"
-                className="h-[88px] object-contain pointer-events-none select-none"
+                loading="eager"
+                decoding="async"
+                className="h-[72px] object-contain pointer-events-none select-none"
                 style={{
-                  filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 16px rgba(59,156,255,0.85))',
+                  filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.85))',
+                  transform: 'translateZ(0)',
+                  willChange: 'transform',
                 }}
               />
               <span className="rounded px-1.5 py-0.5 text-[11px] font-body font-black self-center" style={{ background: 'linear-gradient(180deg,#fff1a8,#e0a912)', color: '#4a2d00' }}>
@@ -169,13 +173,17 @@ function BetPanel({ side }) {
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 -mt-4">
+            <div className="flex items-center gap-2 -mt-5">
               <img
                 src={tigerGif}
                 alt="Tiger"
-                className="h-[88px] object-contain pointer-events-none select-none"
+                loading="eager"
+                decoding="async"
+                className="h-[72px] object-contain pointer-events-none select-none"
                 style={{
-                  filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 16px rgba(255,106,26,0.85))',
+                  filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.85))',
+                  transform: 'translateZ(0)',
+                  willChange: 'transform',
                 }}
               />
               <span className="rounded px-1.5 py-0.5 text-[11px] font-body font-black self-center" style={{ background: 'linear-gradient(180deg,#fff1a8,#e0a912)', color: '#4a2d00' }}>
@@ -229,7 +237,7 @@ function BetPanel({ side }) {
         <div
           data-pile={side}
           className="absolute"
-          style={{ left: '50%', marginLeft: -pileCfg.w / 2, bottom: 70, width: pileCfg.w, height: pileCfg.h }}
+          style={{ left: '50%', marginLeft: -pileCfg.w / 2, bottom: 12, width: pileCfg.w, height: pileCfg.h }}
         >
           <AnimatePresence>
             {pile.map((c) => (

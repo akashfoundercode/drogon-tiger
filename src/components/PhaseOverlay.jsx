@@ -8,20 +8,12 @@ import dragonLogoGif from '../assets/gif/dragon_logo.gif';
 import tigerLogoGif from '../assets/gif/tiger.gif';
 
 /* Background Cinematic Blur Veil:
-   Active during:
-   1. IDLE (Dragon vs Tiger VS confrontation popup)
-   2. First ~1.5s of BETTING (while "PLACE YOUR BETS" is displaying)
-   3. CLOSED (while "BETS LOCKED" is displaying)
-   Fades out cleanly when active betting begins and when card reveal begins!
+   Active strictly during the VS confrontation popup (VERSUS / IDLE).
+   Fades out completely so "PLACE YOUR BETS" and active betting appear directly on top of the clear game background!
 */
 function CinematicBlurVeil() {
   const { state } = useGame();
-  const showBlur =
-    state.phase === PHASES.VERSUS ||
-    state.phase === PHASES.IDLE ||
-    state.phase === PHASES.PLACE_BETS ||
-    (state.phase === PHASES.BETTING && state.timer >= 14) ||
-    state.phase === PHASES.CLOSED;
+  const showBlur = state.phase === PHASES.VERSUS || state.phase === PHASES.IDLE;
 
   return (
     <AnimatePresence>
@@ -31,10 +23,7 @@ function CinematicBlurVeil() {
           className="absolute inset-0 pointer-events-none"
           style={{
             zIndex: 150,
-            background:
-              state.phase === PHASES.CLOSED
-                ? 'radial-gradient(circle at 50% 45%, rgba(60, 5, 12, 0.65) 0%, rgba(5, 2, 10, 0.78) 100%)'
-                : 'radial-gradient(circle at 50% 45%, rgba(12, 6, 25, 0.65) 0%, rgba(5, 2, 12, 0.78) 100%)',
+            background: 'radial-gradient(circle at 50% 45%, rgba(12, 6, 25, 0.65) 0%, rgba(5, 2, 12, 0.78) 100%)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
           }}
@@ -69,18 +58,30 @@ function DragonVsTigerConfrontation() {
             {/* 1. Left: Dragon Popup (Gliding in from left) */}
             <motion.div
               className="relative flex items-center justify-end"
-              style={{ width: 520, height: 320 }}
+              style={{ width: 520, height: 320, transform: 'translateZ(0)', willChange: 'transform' }}
               initial={{ x: -260, opacity: 0, scale: 0.85 }}
               animate={{ x: 0, opacity: 1, scale: 1 }}
               exit={{ x: -220, opacity: 0, scale: 0.9 }}
               transition={{ type: 'spring', stiffness: 280, damping: 20 }}
             >
+              {/* Hardware-accelerated GPU plasma aura (zero CPU raster cost) */}
+              <div
+                className="absolute inset-6 rounded-full pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at 60% 50%, rgba(0,229,255,0.65) 0%, rgba(0,90,240,0.25) 50%, transparent 75%)',
+                  transform: 'translateZ(0)',
+                }}
+              />
               <img
                 src={dragonLogoGif}
                 alt="Dragon Confrontation"
+                loading="eager"
+                decoding="async"
                 className="w-full h-full object-contain pointer-events-none select-none relative"
                 style={{
-                  filter: 'drop-shadow(0 0 25px rgba(0, 229, 255, 0.85)) drop-shadow(0 10px 20px rgba(0,0,0,0.9))',
+                  filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.85))',
+                  transform: 'translateZ(0)',
+                  willChange: 'transform',
                   zIndex: 2,
                 }}
               />
@@ -139,18 +140,30 @@ function DragonVsTigerConfrontation() {
             {/* 3. Right: Tiger Popup (Gliding in from right) */}
             <motion.div
               className="relative flex items-center justify-start"
-              style={{ width: 520, height: 320 }}
+              style={{ width: 520, height: 320, transform: 'translateZ(0)', willChange: 'transform' }}
               initial={{ x: 260, opacity: 0, scale: 0.85 }}
               animate={{ x: 0, opacity: 1, scale: 1 }}
               exit={{ x: 220, opacity: 0, scale: 0.9 }}
               transition={{ type: 'spring', stiffness: 280, damping: 20 }}
             >
+              {/* Hardware-accelerated GPU plasma aura (zero CPU raster cost) */}
+              <div
+                className="absolute inset-6 rounded-full pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at 40% 50%, rgba(255,140,20,0.7) 0%, rgba(220,50,0,0.25) 50%, transparent 75%)',
+                  transform: 'translateZ(0)',
+                }}
+              />
               <img
                 src={tigerLogoGif}
                 alt="Tiger Confrontation"
+                loading="eager"
+                decoding="async"
                 className="w-full h-full object-contain pointer-events-none select-none relative"
                 style={{
-                  filter: 'drop-shadow(0 0 25px rgba(255, 140, 20, 0.85)) drop-shadow(0 10px 20px rgba(0,0,0,0.9))',
+                  filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.85))',
+                  transform: 'translateZ(0)',
+                  willChange: 'transform',
                   zIndex: 2,
                 }}
               />
@@ -452,7 +465,7 @@ function MyResult() {
           transition={{ duration: 0.35, ease: 'easeOut' }}
         >
           <div
-            className="flex flex-col items-center rounded-3xl px-10 py-3.5"
+            className="flex flex-col items-center rounded-2xl px-7 py-2"
             style={{
               background:
                 winner === 'dragon'
@@ -460,22 +473,22 @@ function MyResult() {
                   : winner === 'tiger'
                   ? 'linear-gradient(180deg, rgba(85,15,3,0.96), rgba(30,4,1,0.96))'
                   : 'linear-gradient(180deg, rgba(20,50,25,0.96), rgba(8,24,10,0.96))',
-              border: `3px solid ${winner === 'dragon' ? '#00e5ff' : winner === 'tiger' ? '#ff9d26' : '#4ade80'}`,
+              border: `2.5px solid ${winner === 'dragon' ? '#00e5ff' : winner === 'tiger' ? '#ff9d26' : '#4ade80'}`,
               boxShadow:
                 winner === 'dragon'
-                  ? '0 0 50px rgba(0,229,255,0.7), 0 12px 30px rgba(0,0,0,0.85)'
+                  ? '0 0 35px rgba(0,229,255,0.65), 0 10px 25px rgba(0,0,0,0.85)'
                   : winner === 'tiger'
-                  ? '0 0 50px rgba(255,140,20,0.7), 0 12px 30px rgba(0,0,0,0.85)'
-                  : '0 0 50px rgba(74,222,128,0.7), 0 12px 30px rgba(0,0,0,0.85)',
+                  ? '0 0 35px rgba(255,140,20,0.65), 0 10px 25px rgba(0,0,0,0.85)'
+                  : '0 0 35px rgba(74,222,128,0.65), 0 10px 25px rgba(0,0,0,0.85)',
             }}
           >
             {/* Dragon or Tiger Winner Mascot Header */}
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-2 mb-0.5">
               {winner === 'dragon' && (
                 <>
-                  <img src={dragonLogoGif} alt="Dragon" className="w-12 h-12 object-contain" />
+                  <img src={dragonLogoGif} alt="Dragon" className="w-9 h-9 object-contain" />
                   <span
-                    className="font-display font-black text-[28px] tracking-wider italic"
+                    className="font-display font-black text-[24px] tracking-wider italic"
                     style={{
                       background: 'linear-gradient(180deg, #ffffff 0%, #b3f0ff 30%, #00e5ff 60%, #0077ff 100%)',
                       WebkitBackgroundClip: 'text',
@@ -489,9 +502,9 @@ function MyResult() {
               )}
               {winner === 'tiger' && (
                 <>
-                  <img src={tigerLogoGif} alt="Tiger" className="w-12 h-12 object-contain" />
+                  <img src={tigerLogoGif} alt="Tiger" className="w-9 h-9 object-contain" />
                   <span
-                    className="font-display font-black text-[28px] tracking-wider italic"
+                    className="font-display font-black text-[24px] tracking-wider italic"
                     style={{
                       background: 'linear-gradient(180deg, #ffffff 0%, #fff0a0 30%, #ff9d26 60%, #e04400 100%)',
                       WebkitBackgroundClip: 'text',
@@ -505,9 +518,9 @@ function MyResult() {
               )}
               {winner === 'tie' && (
                 <>
-                  <span className="text-[32px]">🤝</span>
+                  <span className="text-[26px]">🤝</span>
                   <span
-                    className="font-display font-black text-[28px] tracking-wider italic"
+                    className="font-display font-black text-[24px] tracking-wider italic"
                     style={{
                       background: 'linear-gradient(180deg, #ffffff 0%, #bbf7d0 30%, #4ade80 60%, #15803d 100%)',
                       WebkitBackgroundClip: 'text',
@@ -584,6 +597,14 @@ function Toast() {
 }
 
 export default function PhaseOverlay() {
+  const { modal } = useGame();
+
+  // When any modal (120 rounds roadmap, bet history, profile, wallet, etc.) is open,
+  // suppress phase text popups so they never obstruct or appear over modal views
+  if (modal) {
+    return <Toast />;
+  }
+
   return (
     <>
       <CinematicBlurVeil />

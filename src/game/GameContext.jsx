@@ -133,6 +133,7 @@ export function GameProvider({ children }) {
 
   /* ------------------------------ flying chips ------------------------------ */
   const launchChip = useCallback((spec) => {
+    sfx.chip();
     setFlying((f) => [...f.slice(-70), { ...spec, id: ++flyId.current }]);
   }, []);
 

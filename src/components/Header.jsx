@@ -16,14 +16,6 @@ import {
 } from 'lucide-react';
 import PlayingCard from './PlayingCard.jsx';
 import StatusBanner from './StatusBanner.jsx';
-import {
-  StatsModal,
-  HelpModal,
-  SettingsModal,
-  LoginModal,
-  ProfileModal,
-  WalletModal,
-} from './Modals.jsx';
 import { useGame } from '../game/GameContext.jsx';
 import { PHASES } from '../game/constants.js';
 import { formatINR } from '../game/format.js';
@@ -224,15 +216,6 @@ export default function Header() {
       </div>
 
       <StatusBanner />
-
-      <AnimatePresence>
-        {modal === 'login' && <LoginModal key="login" onClose={() => setModal(null)} />}
-        {modal === 'profile' && <ProfileModal key="profile" onClose={() => setModal(null)} />}
-        {modal === 'wallet' && <WalletModal key="wallet" onClose={() => setModal(null)} />}
-        {modal === 'stats' && <StatsModal key="stats" onClose={() => setModal(null)} />}
-        {modal === 'help' && <HelpModal key="help" onClose={() => setModal(null)} />}
-        {modal === 'settings' && <SettingsModal key="settings" onClose={() => setModal(null)} />}
-      </AnimatePresence>
     </>
   );
 }

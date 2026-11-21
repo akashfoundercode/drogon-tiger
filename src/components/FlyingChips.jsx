@@ -2,15 +2,17 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Chip from './Chip.jsx';
 import { useGame } from '../game/GameContext.jsx';
-import { CHIP_SIZE } from '../game/pile.js';
+import { CHIP_SIZE, PILE_CFG } from '../game/pile.js';
 import { sfx } from '../game/sound.js';
 
 // Base pile origins inside the 3 betting boxes (Canvas 1870 x 841 space)
-// Dragon Box: left: 405, top: 326, w: 343, h: 284 -> Pile at bottom: 70, w: 230, h: 90
+// Dragon Box: left: 405, top: 326, w: 343, h: 228
+// Tie Box: left: 770, top: 326, w: 334, h: 228
+// Tiger Box: left: 1126, top: 326, w: 343, h: 228
 const BOX_PILE_ORIGINS = {
-  dragon: { x: 405 + (343 - 230) / 2, y: 326 + 284 - 70 - 90 }, // x: 461.5, y: 450 (Blue)
-  tie: { x: 770 + (334 - 230) / 2, y: 326 + 284 - 70 - 90 },     // x: 822, y: 450 (Green)
-  tiger: { x: 1126 + (343 - 230) / 2, y: 326 + 284 - 70 - 90 }, // x: 1182.5, y: 450 (Red)
+  dragon: { x: 405 + (343 - PILE_CFG.dragon.w) / 2, y: 326 + 228 - 12 - PILE_CFG.dragon.h },
+  tie: { x: 770 + (334 - PILE_CFG.tie.w) / 2, y: 326 + 228 - 12 - PILE_CFG.tie.h },
+  tiger: { x: 1126 + (343 - PILE_CFG.tiger.w) / 2, y: 326 + 228 - 12 - PILE_CFG.tiger.h },
 };
 
 function FlyingChip({ spec }) {
